@@ -9,7 +9,7 @@ This repository includes the implementations of BERTE from:
 Northwestern Polytechnical University, Xi’an, Shaanxi 710072, China<br>
 Northwest A&F University, Yangling, Shaanxi 712100, China
 
-[![Paper](https://img.shields.io/badge/Paper-PDF-blue)](<[LINK_URL](https://www.biorxiv.org/content/10.1101/2024.01.28.577612v1)>)
+[![Paper](https://img.shields.io/badge/Paper-PDF-blue)](<https://www.biorxiv.org/content/10.1101/2024.01.28.577612v1>)
 
 **The code will soon be released when the manuscript is officially published.**
 
