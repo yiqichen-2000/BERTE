@@ -7,7 +7,7 @@ This repository includes the implementations of BERTE from:
 
 [![Paper](https://img.shields.io/badge/Paper-PDF-blue)](<https://www.biorxiv.org/content/10.1101/2024.01.28.577612v1>)
 
-**The code will soon be released when the manuscript is officially published.**
+**The code will soon be released.**
 
 ![workflow](https://github.com/yiqichen-2000/BERTE/assets/76149916/bb7ce8a9-b3d0-4239-b9f5-c9bdce724614)
 
