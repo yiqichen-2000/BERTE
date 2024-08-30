@@ -147,6 +147,9 @@ python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 --is_fu
 ```
 mv *_full_length_kmer_counts_list.pkl ../working_files/
 # Move demo_SINE's full length 4-mer, 5-mer, and 6-mer features, to be used in training
+
+mv *_superfamliy_.pkl ../working_files/
+# Move demo_SINE's superfamily ids, to be used as labels in training
 ```
 
 ## Example Training
@@ -161,10 +164,11 @@ Usage: BERTE_train.py [-h] rank epoch batchsize
 Output: superfamily pickle file, k-mer fragment json and txt files, k-mer count pickle file, full header file.
 
 positional arguments:
+  - \<path\>: Path to the directory containing .pkl files.
   - \<rank\>: The selected rank name (i.e. parent node).
   - \<epoch\>: Number of epochs for training the model.
   - \<batchsize\>: Batch size for training the model.
 
 ```
-CUDA_VISIBLE_DEVICES=1 python BERTE_train.py SINE 50 64
+CUDA_VISIBLE_DEVICES=1 python BERTE_train.py ../working_files/ SINE 50 64
 ```
