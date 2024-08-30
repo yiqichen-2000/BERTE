@@ -38,7 +38,7 @@ bio==1.6.0
 ## Example Feature Extraction
 First extract the zip to \<your directory\>
 ```
-cd <your directory>
+cd <directory where you store BERTE-main.zip>
 unzip BERTE-main.zip
 cd BERTE-main/
 ```
