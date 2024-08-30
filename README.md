@@ -184,7 +184,7 @@ cd ../Train  # Enter the directory to train models
 
 Usage: BERTE_train.py [-h] rank epoch batchsize
 
-Output: superfamily pickle file, k-mer fragment json and txt files, k-mer count pickle file, full header file.
+Output: trained model, test predictions pkl file, classification report file.
 
 positional arguments:
   - \<path\>: Path to the directory containing .pkl files.
