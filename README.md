@@ -43,9 +43,7 @@ unzip BERTE-main.zip
 cd BERTE-main/
 ```
 
-The usage is exemplified by the demo_SINE.fasta data \(which has been filtered for similarity\)
-
-This step is divided into **Feature extraction module based on BERT** and **Full-length k-mer extraction**
+The following usage is exemplified by the demo_SINE.fasta data \(which has been filtered for similarity\)
 
 ### Feature extraction module based on BERT
 ```
@@ -66,7 +64,6 @@ Arguments:
 python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 506  # Truncate 506bp to generate 4-mer sequence both end fragments with stride 1
 python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 508  # Truncate 508bp to generate 5-mer sequence both end fragments with stride 1
 python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 510  # Truncate 510bp to generate 6-mer sequence both end fragments with stride 1
-
 ```
 
 `seq_to_kmercount_horner.py`: Generate k-mer count using Horner's rule (in this step generates both end k-mer count for BERT)
@@ -88,11 +85,10 @@ options:
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_506bp.fasta 4 1 # Generate 4-mer count for both end of the sequences using Horner's rule, with stride 1
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_508bp.fasta 5 1 # Generate 5-mer count for both end of the sequences using Horner's rule, with stride 1
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 # Generate 6-mer count for both end of the sequences using Horner's rule, with stride 1
-
 ```
 
 ```
-cd ../BERT_feature_extraction # Enter the directory to generate BERT \[CLS\] token embedding
+cd ../BERT_feature_extraction # Enter the directory to generate BERT [CLS] token embedding
 ```
 
 `extract_features_tf2_cls.py`: Google's official code for generating token embedding from pre-trained BERT models
