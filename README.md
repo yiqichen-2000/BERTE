@@ -13,20 +13,30 @@ This repository includes the implementations of BERTE from:
 
 ## Requirement
 BERTE runs with conda
+```
+conda create -n BERTE python=3.8.1
+conda activate BERTE
+```
 
+package information
+```
 h5py == 3.1.0
-
-tensorflow == 2.6.0
 tensorflow-gpu == 2.6.0
-python == 3.8.1
+tensorflow == 2.6.0
 
-cudnn == 8.9.2.26, cudatoolkit == 11.8.0
+keras == 2.6.0
+keras-bert == 0.89.0
 
+scikit-learn == 1.2.2
+numpy == 1.19.2
+bio == 1.6.0
+```
+\(Verified with NVIDIA 4090 GPU, running tensorflow using cudnn == 8.9.2.26 and cudatoolkit == 11.8.0\)
 
 ## Example Feature Extraction
 First extract the zip to \<your directory\>
 ```
-cd \<your directory\>
+cd <your directory>
 unzip BERTE-main.zip
 cd BERTE-main/
 ```
@@ -83,7 +93,8 @@ python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 # Gener
 cd ../BERT_feature_extraction # Enter the directory to generate BERT \[CLS\] token embedding
 ```
 
-`extract_features_tf2_cls.py`: Google's official code for generating token embedding from pre-trained BERT models, adapted for tensorflow 2.x.
+`extract_features_tf2_cls.py`: Google's official code for generating token embedding from pre-trained BERT models
+\(adapted for tensorflow 2.x\)
 
 Output: \[CLS\] token embedding jsonl file
 
