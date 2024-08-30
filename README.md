@@ -12,7 +12,11 @@ We evaluated BERTE’s performance on filtered datasets collected from 12 eukary
 
 [![Paper](https://img.shields.io/badge/Paper-PDF-blue)](<https://www.biorxiv.org/content/10.1101/2024.01.28.577612v1>)
 
-![workflow](https://github.com/yiqichen-2000/BERTE/assets/76149916/bb7ce8a9-b3d0-4239-b9f5-c9bdce724614)
+## Method overview
+![Method_overview](Images/Method_overview.png)
+
+## TE hierarchical classification structure
+![TE_hierarchical_classification_structure](Images/TE_hierarchical_classification_structure.png)
 
 # Requirement
 BERTE runs with a conda virtual environment
