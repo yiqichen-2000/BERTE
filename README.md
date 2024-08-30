@@ -41,6 +41,7 @@ First extract the zip to \<your directory\>
 cd <directory where you store BERTE-main.zip>
 unzip BERTE-main.zip
 cd BERTE-main/
+mkdir working_files/
 ```
 
 The following usage is exemplified by the demo_SINE.fasta data \(which has been filtered for similarity\)
