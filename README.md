@@ -20,16 +20,18 @@ conda activate BERTE
 
 package information
 ```
-h5py == 3.1.0
-tensorflow-gpu == 2.6.0
-tensorflow == 2.6.0
+h5py==3.1.0
+tensorflow-gpu==2.6.0
+tensorflow==2.6.0
 
-keras == 2.6.0
-keras-bert == 0.89.0
+keras==2.6.0
+keras-bert==0.89.0
 
-scikit-learn == 1.2.2
-numpy == 1.19.2
-bio == 1.6.0
+scikit-learn==1.2.2
+numpy==1.19.2
+scipy==1.9.3
+pandas==1.1.4
+bio==1.6.0
 ```
 \(Verified with NVIDIA 4090 GPU, running tensorflow using cudnn == 8.9.2.26 and cudatoolkit == 11.8.0\)
 
