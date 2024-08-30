@@ -1,32 +1,36 @@
 # BERTE
 This repository includes the implementations of BERTE from:
 
-**BERTE：High-precision hierarchical classification of transposable elements by a transfer learning method with BERT pre-trained model and convolutional neural network**
+**BERTE: High-precision hierarchical classification of transposable elements based on transfer learning method with BERT and CNN**
+
+# Introduction
+Transposable Elements (TEs) are abundant repeat sequences found in living organisms. They play a pivotal role in biological evolution and gene regulation and are intimately linked to human diseases. Existing TE classification tools can classify classes, orders, and superfamilies concurrently, but they often struggle to effectively extract sequence features. This limitation frequently results in subpar classification results, especially in hierarchical classification. To tackle this problem, we introduced BERTE, a tool for TE hierarchical classification. BERTE encoded TE sequences into distinctive features that consisted of both attentional and cumulative k-mer frequency information. By leveraging the multi-head self-attention mechanism of the pre-trained BERT model, BERTE transformed sequences into attentional features. Additionally, we calculated multiple k-mer frequency vectors and concatenate them to form cumulative features. Following feature extraction, a parallel Convolutional Neural Network (CNN) model was employed as an efficient sequence classifier, capitalizing on its capability for high-dimensional feature transformation. 
+
+We evaluated BERTE’s performance on filtered datasets collected from 12 eukaryotic databases. Experimental results demonstrated that BERTE could improve the F1-score at different levels by up to 21% compared to current state-of-the-art methods. In general, BERTE classifies TE sequences with greater precision. 
 
 **bioRxiv 2024**
 
 [![Paper](https://img.shields.io/badge/Paper-PDF-blue)](<https://www.biorxiv.org/content/10.1101/2024.01.28.577612v1>)
 
-**The code is being uploaded, it is expected that the upload will be completed by 2024.8.30 12:00 BST.**
-
 ![workflow](https://github.com/yiqichen-2000/BERTE/assets/76149916/bb7ce8a9-b3d0-4239-b9f5-c9bdce724614)
 
-## Requirement
-BERTE runs with conda
-```
+# Requirement
+BERTE runs with a conda virtual environment
+```Bash
 conda create -n BERTE python=3.8.1
 conda activate BERTE
 ```
-### Use terminal
+## Use terminal
+**Package information**
 
-package information
-```
+\(Verified with NVIDIA 4090 GPU, running tensorflow using
+
+conda install cudnn==8.9.2.26 and conda install cudatoolkit==11.8.0\)
+
+```Bash
 pip install tensorflow==2.6.0
 pip install tensorflow-gpu==2.6.0
 pip install tensorflow-estimator==2.6.0
-(Verified with NVIDIA 4090 GPU, running tensorflow using
-conda install cudnn==8.9.2.26
-conda install cudatoolkit==11.8.0)
 
 pip install keras==2.6.0
 pip install keras-bert==0.89.0
@@ -41,15 +45,14 @@ pip install Protobuf==3.19.6
 pip install Jsonlines==2.0.0
 pip install bio==1.6.0
 ```
-### Use requirements.txt
-
-```
+## Use requirements.txt
+```Bash
 pip install -r requirements.txt
 ```
 
-## Example Feature Extraction
+# Feature Extraction
 First extract the zip to \<your directory\>
-```
+```Bash
 cd <directory where you store BERTE-main.zip>
 unzip BERTE-main.zip
 cd BERTE-main/
@@ -58,10 +61,19 @@ mkdir working_files/
 
 The following usage is exemplified by the demo_SINE.fasta data \(which has been filtered for similarity\)
 
-### Feature extraction module based on BERT
+## Feature extraction module based on BERT
+● Enter the directory to generate k-mer
+```Bash
+cd ./Kmer_pre-processing
 ```
-cd ./Kmer_pre-processing  # Enter the directory to generate k-mer
+
+● Truncate sequences in FASTA files by keeping only the both ends of the sequences (executed for 4-mer, 5-mer, 6-mer)
+```Python
+python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 506  # Truncate 506bp to generate 4-mer sequence both end fragments with stride 1
+python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 508  # Truncate 508bp to generate 5-mer sequence both end fragments with stride 1
+python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 510  # Truncate 510bp to generate 6-mer sequence both end fragments with stride 1
 ```
+
 `seq_bothend_truncate.py`: Truncate sequences in a FASTA file by keeping only the both ends of the sequences
 
 Usage: python seq_bothend_truncate.py \<input_fasta_file\> \<max_length\>
@@ -73,10 +85,12 @@ Arguments:
   - \<input_fasta_file\>: Path to the input FASTA file.
   - \<max_length\>: Maximum length of the truncated sequences.
 
-```
-python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 506  # Truncate 506bp to generate 4-mer sequence both end fragments with stride 1
-python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 508  # Truncate 508bp to generate 5-mer sequence both end fragments with stride 1
-python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 510  # Truncate 510bp to generate 6-mer sequence both end fragments with stride 1
+
+● Generate k-mer count using Horner's rule (in this step generates both end 4-mer, 5-mer, 6-mer count for BERT)
+```Python
+python seq_to_kmercount_horner.py ../demo_data/demo_SINE_506bp.fasta 4 1 # Generate 4-mer count for both end of the sequences using Horner's rule, with stride 1
+python seq_to_kmercount_horner.py ../demo_data/demo_SINE_508bp.fasta 5 1 # Generate 5-mer count for both end of the sequences using Horner's rule, with stride 1
+python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 # Generate 6-mer count for both end of the sequences using Horner's rule, with stride 1
 ```
 
 `seq_to_kmercount_horner.py`: Generate k-mer count using Horner's rule (in this step generates both end k-mer count for BERT)
@@ -94,22 +108,13 @@ options:
   - \-h, --help: Show this help message and exit
   - \-\-is_full_length: Generate full-length k-mers
 
-```
-python seq_to_kmercount_horner.py ../demo_data/demo_SINE_506bp.fasta 4 1 # Generate 4-mer count for both end of the sequences using Horner's rule, with stride 1
-python seq_to_kmercount_horner.py ../demo_data/demo_SINE_508bp.fasta 5 1 # Generate 5-mer count for both end of the sequences using Horner's rule, with stride 1
-python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 # Generate 6-mer count for both end of the sequences using Horner's rule, with stride 1
-```
-
-```
-cd ../BERT_feature_extraction # Enter the directory to generate BERT [CLS] token embedding
+● Enter the directory to generate BERT \[CLS\] token embedding
+```Bash
+cd ../BERT_feature_extraction
 ```
 
-`extract_features_tf2_cls.py`: Google's official code for generating token embedding from pre-trained BERT models
-\(adapted for tensorflow 2.x\)
-
-Output: \[CLS\] token embedding jsonl file
-
-```
+● Generating token embedding from pre-trained BERT models, using both end k-mer fragments as input.
+```Python
 CUDA_VISIBLE_DEVICES=0 python extract_features_tf2_cls.py \
     --input_file=../demo_data/demo_SINE_506bp_bothend_kmer_fragments.txt \
     --output_file=./demo_SINE_506bp_bothend_kmer_fragments_cls.jsonl \
@@ -144,9 +149,21 @@ CUDA_VISIBLE_DEVICES=0 python extract_features_tf2_cls.py \
     --batch_size=16
 ```
 
+`extract_features_tf2_cls.py`: Google's official code for generating token embedding from pre-trained BERT models
+\(adapted for tensorflow 2.x\)
+
+Output: \[CLS\] token embedding jsonl file
+
+● Process JSONL file to extract BERT embeddings in pickle.
+```Python
+python jsonl_to_txt.py demo_SINE_506bp_bothend_kmer_fragments_cls last
+python jsonl_to_txt.py demo_SINE_508bp_bothend_kmer_fragments_cls last
+python jsonl_to_txt.py demo_SINE_510bp_bothend_kmer_fragments_cls last
+```
+
 `jsonl_to_txt.py`: Process JSONL file to extract BERT embeddings in pickle.
 
-Usage: seq_to_kmercount_horner.py [-h] [--is_full_length] fasta_file k stride
+Usage: seq_to_kmercount_horner.py \[-h\] \[--is_full_length\] fasta_file k stride
 
 Output: BERT embeddings pickle file
 
@@ -154,39 +171,37 @@ Positional arguments:
   - \<json_file\>: Path to the JSONL file containing BERT outputs
   - \{last,sum_all,concat_all,save_separate\}: Mode of layer output processing \(last, sum_all, concat_all, save_separate\)
 
-```
-python jsonl_to_txt.py demo_SINE_506bp_bothend_kmer_fragments_cls last
-python jsonl_to_txt.py demo_SINE_508bp_bothend_kmer_fragments_cls last
-python jsonl_to_txt.py demo_SINE_510bp_bothend_kmer_fragments_cls last
-```
-
-```
+● Move demo_SINE's 4-mer, 5-mer, and 6-mer transformed BERT features, to be used in training
+```Bash
 mv *_cls_embedding_features.pkl ../working_files/
-# Move demo_SINE's 4-mer, 5-mer, and 6-mer transformed BERT features, to be used in training
 ```
 
-### Full-length k-mer extraction
-```
-cd ../Kmer_pre-processing  # Enter the directory to generate k-mer (generating full-length k-mer in this step)
-```
+## Full-length k-mer extraction
+● Enter the directory to generate k-mer (generating full-length k-mer in this step)
+```Bash
+cd ../Kmer_pre-processing
 
-```
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_506bp.fasta 4 1 --is_full_length # Generate full-length 4-mer sequence with stride 1
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_508bp.fasta 5 1 --is_full_length # Generate full-length 5-mer sequence with stride 1
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 --is_full_length # Generate full-length 6-mer sequence with stride 1
 ```
 
-```
+● Move demo_SINE's full length 4-mer, 5-mer, and 6-mer features, to be used in training
+● Move demo_SINE's superfamily ids, to be used as labels in training
+```Bash
 mv ../demo_data/*_full_length_kmer_counts_list.pkl ../working_files/
-# Move demo_SINE's full length 4-mer, 5-mer, and 6-mer features, to be used in training
-
 mv ../demo_data/*_superfamliy.pkl ../working_files/
-# Move demo_SINE's superfamily ids, to be used as labels in training
 ```
 
-## Example Training
+# Training
+● Enter the directory to train models
+```Bash
+cd ../Train  
 ```
-cd ../Train  # Enter the directory to train models
+
+● Start training
+```Python
+CUDA_VISIBLE_DEVICES=0 python BERTE_train.py ../working_files SINE 50 64
 ```
 
 `BERTE_train.py`: Train a CNN model to classify DNA sequences using BERT embeddings and k-mer counts.
@@ -201,6 +216,3 @@ positional arguments:
   - \<epoch\>: Number of epochs for training the model.
   - \<batchsize\>: Batch size for training the model.
 
-```
-CUDA_VISIBLE_DEVICES=0 python BERTE_train.py ../working_files SINE 50 64
-```
