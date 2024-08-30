@@ -129,12 +129,13 @@ python jsonl_to_txt.py demo_SINE_510bp_bothend_kmer_fragments_cls.jsonl last
 ```
 
 ```
-mv *_cls_embedding_features.txt ../working_files/  # Move demo_SINE's 4-mer, 5-mer, and 6-mer transformed BERT features, to be used in training
+mv *_cls_embedding_features.txt ../working_files/
+# Move demo_SINE's 4-mer, 5-mer, and 6-mer transformed BERT features, to be used in training
 ```
 
 ### Full-length k-mer extraction
 ```
-cd ./Kmer_pre-processing  # Enter the directory to generate k-mer (generating full-length k-mer in this step)
+cd ../Kmer_pre-processing  # Enter the directory to generate k-mer (generating full-length k-mer in this step)
 ```
 
 ```
@@ -144,9 +145,22 @@ python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 --is_fu
 ```
 
 ```
-mv *_full_length_kmer_counts_list.pkl ../working_files/  # Move demo_SINE's full length 4-mer, 5-mer, and 6-mer features, to be used in training
+mv *_full_length_kmer_counts_list.pkl ../working_files/
+# Move demo_SINE's full length 4-mer, 5-mer, and 6-mer features, to be used in training
 ```
 
 ## Example Training
+```
+cd ../Train  # Enter the directory to train models
+```
 
+`BERTE_train.py`: Train a CNN model to classify DNA sequences using BERT embeddings and k-mer counts.
 
+Usage: BERTE_train.py [-h] rank epoch batchsize
+
+Output: superfamily pickle file, k-mer fragment json and txt files, k-mer count pickle file, full header file.
+
+positional arguments:
+  - \<rank\>: The selected rank name (i.e. parent node).
+  - \<epoch\>: Number of epochs for training the model.
+  - \<batchsize\>: Batch size for training the model.
