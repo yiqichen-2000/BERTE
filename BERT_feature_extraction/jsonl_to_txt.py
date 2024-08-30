@@ -42,18 +42,18 @@ def process_features(json_file, layer_mode):
 
     if layer_mode != 'save_separate':
         # Save combined or processed embeddings
-        with open(json_file + '_cls_embedding_features.pkl', 'wb') as file:
+        with open(json_file + '_embedding_features.pkl', 'wb') as file:
             pickle.dump(layer_cls, file)
-        np.savetxt(json_file + '_cls_embedding_features.txt', layer_cls, fmt='%s')
-        print(f'Output saved: {json_file}_cls_embedding_features.pkl and {json_file}_cls_embedding_features.txt')
+        np.savetxt(json_file + '_embedding_features.txt', layer_cls, fmt='%s')
+        print(f'Output saved: {json_file}_embedding_features.pkl and {json_file}_embedding_features.txt')
     else:
         # Save separate layer embeddings
         layer_names = ["cls1", "cls2", "cls3", "cls4"]
         for idx, layer_data in enumerate([layer_cls1, layer_cls2, layer_cls3, layer_cls4]):
-            with open(f'{json_file}_{layer_names[idx]}_cls_embedding_features.pkl', 'wb') as file:
+            with open(f'{json_file}_{layer_names[idx]}_embedding_features.pkl', 'wb') as file:
                 pickle.dump(layer_data, file)
-            np.savetxt(f'{json_file}_{layer_names[idx]}_cls_embedding_features.txt', layer_data, fmt='%s')
-            print(f'Output saved: {json_file}_{layer_names[idx]}_cls_embedding.pkl and {json_file}_{layer_names[idx]}_cls_embedding_features.txt')
+            np.savetxt(f'{json_file}_{layer_names[idx]}_embedding_features.txt', layer_data, fmt='%s')
+            print(f'Output saved: {json_file}_{layer_names[idx]}_embedding.pkl and {json_file}_{layer_names[idx]}_embedding_features.txt')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process JSONL file to extract BERT embeddings.')
