@@ -20,20 +20,28 @@ conda activate BERTE
 
 package information
 ```
-h5py==3.1.0
-tensorflow-gpu==2.6.0
-tensorflow==2.6.0
+pip install tensorflow==2.6.0
+pip install tensorflow-gpu==2.6.0
+pip install tensorflow-estimator==2.6.0
+(Verified with NVIDIA 4090 GPU, running tensorflow using
+conda install cudnn==8.9.2.26
+conda install cudatoolkit==11.8.0)
 
-keras==2.6.0
-keras-bert==0.89.0
 
-scikit-learn==1.2.2
-numpy==1.19.2
-scipy==1.9.3
-pandas==1.1.4
-bio==1.6.0
+pip install keras==2.6.0
+pip install keras-bert==0.89.0
+
+pip install scikit-learn==1.2.2
+pip install numpy==1.19.2
+pip install scipy==1.9.3
+pip install pandas==1.1.4
+
+pip install h5py==3.1.0
+pip install Protobuf==3.19.6
+pip install Jsonlines==2.0.0
+pip install bio==1.6.0
 ```
-\(Verified with NVIDIA 4090 GPU, running tensorflow using cudnn == 8.9.2.26 and cudatoolkit == 11.8.0\)
+
 
 ## Example Feature Extraction
 First extract the zip to \<your directory\>
@@ -149,7 +157,7 @@ python jsonl_to_txt.py demo_SINE_510bp_bothend_kmer_fragments_cls last
 ```
 
 ```
-mv *_cls_embedding_features.txt ../working_files/
+mv *_cls_embedding_features.pkl ../working_files/
 # Move demo_SINE's 4-mer, 5-mer, and 6-mer transformed BERT features, to be used in training
 ```
 
@@ -190,5 +198,5 @@ positional arguments:
   - \<batchsize\>: Batch size for training the model.
 
 ```
-CUDA_VISIBLE_DEVICES=0 python BERTE_train.py ../working_files/ SINE 50 64
+CUDA_VISIBLE_DEVICES=0 python BERTE_train.py ../working_files SINE 50 64
 ```
