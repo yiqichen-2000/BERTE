@@ -133,9 +133,20 @@ mv *_cls_embedding_features.txt ../working_files/  # Move demo_SINE's 4-mer, 5-m
 ```
 
 ### Full-length k-mer extraction
+```
+cd ./Kmer_pre-processing  # Enter the directory to generate k-mer (generating full-length k-mer in this step)
+```
 
+```
+python seq_to_kmercount_horner.py ../demo_data/demo_SINE_506bp.fasta 4 1 --is_full_length # Generate full-length 4-mer sequence with stride 1
+python seq_to_kmercount_horner.py ../demo_data/demo_SINE_508bp.fasta 5 1 --is_full_length # Generate full-length 5-mer sequence with stride 1
+python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 --is_full_length # Generate full-length 6-mer sequence with stride 1
+```
 
+```
+mv *_full_length_kmer_counts_list.pkl ../working_files/  # Move demo_SINE's full length 4-mer, 5-mer, and 6-mer features, to be used in training
+```
 
-
+## Example Training
 
 
