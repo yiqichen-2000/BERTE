@@ -143,9 +143,9 @@ Positional arguments:
   - \{last,sum_all,concat_all,save_separate\}: Mode of layer output processing \(last, sum_all, concat_all, save_separate\)
 
 ```
-python jsonl_to_txt.py demo_SINE_506bp_bothend_kmer_fragments_cls.jsonl last
-python jsonl_to_txt.py demo_SINE_508bp_bothend_kmer_fragments_cls.jsonl last
-python jsonl_to_txt.py demo_SINE_510bp_bothend_kmer_fragments_cls.jsonl last
+python jsonl_to_txt.py demo_SINE_506bp_bothend_kmer_fragments_cls last
+python jsonl_to_txt.py demo_SINE_508bp_bothend_kmer_fragments_cls last
+python jsonl_to_txt.py demo_SINE_510bp_bothend_kmer_fragments_cls last
 ```
 
 ```
@@ -165,10 +165,10 @@ python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 --is_fu
 ```
 
 ```
-mv *_full_length_kmer_counts_list.pkl ../working_files/
+mv ../demo_data/*_full_length_kmer_counts_list.pkl ../working_files/
 # Move demo_SINE's full length 4-mer, 5-mer, and 6-mer features, to be used in training
 
-mv *_superfamliy_.pkl ../working_files/
+mv ../demo_data/*_superfamliy.pkl ../working_files/
 # Move demo_SINE's superfamily ids, to be used as labels in training
 ```
 
@@ -190,5 +190,5 @@ positional arguments:
   - \<batchsize\>: Batch size for training the model.
 
 ```
-CUDA_VISIBLE_DEVICES=1 python BERTE_train.py ../working_files/ SINE 50 64
+CUDA_VISIBLE_DEVICES=0 python BERTE_train.py ../working_files/ SINE 50 64
 ```
