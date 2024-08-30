@@ -20,18 +20,20 @@ unzip BERTE-main.zip
 cd BERTE-main/
 ```
 
+## Example Feature Extraction
 The usage is exemplified by the demo_SINE.fasta data \(which has been filtered for similarity\)
 
-## Feature Extraction
-This step is divided into **Feature extraction module based on BERT** and **Full-length kmer extraction**
+This step is divided into **Feature extraction module based on BERT** and **Full-length k-mer extraction**
 
 ### Feature extraction module based on BERT
 ```
-cd ./Kmer_pre-processing  # Enter the directory to generate kmer
+cd ./Kmer_pre-processing  # Enter the directory to generate k-mer
 ```
 `seq_bothend_truncate.py`: Truncate sequences in a FASTA file by keeping only the both ends of the sequences
 
 Usage: python seq_bothend_truncate.py \<input_fasta_file\> \<max_length\>
+
+Output: The fasta file after truncation, with filename adding \<max_length\>. E.g. demo_SINE_506bp.fasta, demo_SINE_508bp.fasta, demo_SINE_510bp.fasta
 
 Arguments:
 
@@ -42,12 +44,14 @@ Arguments:
 python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 506  # Truncate 506bp to generate 4-mer sequence both end fragments with stride 1
 python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 508  # Truncate 508bp to generate 5-mer sequence both end fragments with stride 1
 python seq_bothend_truncate.py ../demo_data/demo_SINE.fasta 510  # Truncate 510bp to generate 6-mer sequence both end fragments with stride 1
-# Output: demo_SINE_506bp.fasta, demo_SINE_508bp.fasta, demo_SINE_510bp.fasta
+
 ```
 
-`seq_to_kmercount_horner.py`: Generate k-mer count using Horner's rule (in this step generates both end kmer count for BERT)
+`seq_to_kmercount_horner.py`: Generate k-mer count using Horner's rule (in this step generates both end k-mer count for BERT)
 
 Usage: seq_to_kmercount_horner.py [-h] [--is_full_length] fasta_file k stride
+
+Output: superfamily pickle file, k-mer fragment json and txt files, k-mer count pickle file, full header file.
 
 positional arguments:
   - \<fasta_file\>: Input FASTA file containing sequences
@@ -56,23 +60,79 @@ positional arguments:
 
 options:
   - \-h, --help: Show this help message and exit
-  
   - \-\-is_full_length: Generate full-length k-mers
 
 ```
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_506bp.fasta 4 1 # Generate 4-mer count for both end of the sequences using Horner's rule, with stride 1
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_508bp.fasta 5 1 # Generate 5-mer count for both end of the sequences using Horner's rule, with stride 1
 python seq_to_kmercount_horner.py ../demo_data/demo_SINE_510bp.fasta 6 1 # Generate 6-mer count for both end of the sequences using Horner's rule, with stride 1
-# Output: superfamily pickle file, kmer fragment json and txt files, kmer count pickle file, full header file.
+
+```
+
+```
+cd ../BERT_feature_extraction # Enter the directory to generate BERT \[CLS\] token embedding
+```
+
+`extract_features_tf2_cls.py`: Google's official code for generating token embedding from pre-trained BERT models, adapted for tensorflow 2.x.
+
+Output: \[CLS\] token embedding jsonl file
+
+```
+CUDA_VISIBLE_DEVICES=0 python extract_features_tf2_cls.py \
+    --input_file=../demo_data/demo_SINE_506bp_bothend_kmer_fragments.txt \
+    --output_file=./demo_SINE_506bp_bothend_kmer_fragments_cls.jsonl \
+    --vocab_file=./BERTMini/kmer_vocab.txt \
+    --bert_config_file=./BERTMini/bert_config.json \
+    --init_checkpoint=./BERTMini/bert_model.ckpt.index \
+    --do_lower_case=False \
+    --layers=-1 \
+    --max_seq_length=503 \
+    --batch_size=16
+
+CUDA_VISIBLE_DEVICES=0 python extract_features_tf2_cls.py \
+    --input_file=../demo_data/demo_SINE_508bp_bothend_kmer_fragments.txt \
+    --output_file=./demo_SINE_508bp_bothend_kmer_fragments_cls.jsonl \
+    --vocab_file=./BERTMini/kmer_vocab.txt \
+    --bert_config_file=./BERTMini/bert_config.json \
+    --init_checkpoint=./BERTMini/bert_model.ckpt.index \
+    --do_lower_case=False \
+    --layers=-1 \
+    --max_seq_length=503 \
+    --batch_size=16
+
+CUDA_VISIBLE_DEVICES=0 python extract_features_tf2_cls.py \
+    --input_file=../demo_data/demo_SINE_510bp_bothend_kmer_fragments.txt \
+    --output_file=./demo_SINE_510bp_bothend_kmer_fragments_cls.jsonl \
+    --vocab_file=./BERTMini/kmer_vocab.txt \
+    --bert_config_file=./BERTMini/bert_config.json \
+    --init_checkpoint=./BERTMini/bert_model.ckpt.index \
+    --do_lower_case=False \
+    --layers=-1 \
+    --max_seq_length=503 \
+    --batch_size=16
+```
+
+`jsonl_to_txt.py`: Process JSONL file to extract BERT embeddings in pickle.
+
+Usage: seq_to_kmercount_horner.py [-h] [--is_full_length] fasta_file k stride
+
+Output: BERT embeddings pickle file
+
+Positional arguments:
+  - \<json_file\>: Path to the JSONL file containing BERT outputs
+  - \{last,sum_all,concat_all,save_separate\}: Mode of layer output processing \(last, sum_all, concat_all, save_separate\)
+
+```
+python jsonl_to_txt.py demo_SINE_506bp_bothend_kmer_fragments_cls.jsonl last
+python jsonl_to_txt.py demo_SINE_508bp_bothend_kmer_fragments_cls.jsonl last
+python jsonl_to_txt.py demo_SINE_510bp_bothend_kmer_fragments_cls.jsonl last
 ```
 
 ```
-cd ../BERT_feature_extraction # 
+mv *_cls_embedding_features.txt ../working_files/  # Move demo_SINE's 4-mer, 5-mer, and 6-mer transformed BERT features, to be used in training
 ```
 
-
-
-
+### Full-length k-mer extraction
 
 
 
