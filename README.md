@@ -164,3 +164,7 @@ positional arguments:
   - \<rank\>: The selected rank name (i.e. parent node).
   - \<epoch\>: Number of epochs for training the model.
   - \<batchsize\>: Batch size for training the model.
+
+```
+CUDA_VISIBLE_DEVICES=1 python BERTE_train.py SINE 50 64
+```
