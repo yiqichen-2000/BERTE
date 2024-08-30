@@ -17,6 +17,7 @@ BERTE runs with conda
 conda create -n BERTE python=3.8.1
 conda activate BERTE
 ```
+### Use terminal
 
 package information
 ```
@@ -27,11 +28,10 @@ pip install tensorflow-estimator==2.6.0
 conda install cudnn==8.9.2.26
 conda install cudatoolkit==11.8.0)
 
-
 pip install keras==2.6.0
 pip install keras-bert==0.89.0
 
-pip install scikit-learn==1.2.2
+pip install scikit-learn==1.3.2
 pip install numpy==1.19.2
 pip install scipy==1.9.3
 pip install pandas==1.1.4
@@ -41,7 +41,11 @@ pip install Protobuf==3.19.6
 pip install Jsonlines==2.0.0
 pip install bio==1.6.0
 ```
+### Use requirements.txt
 
+```
+pip install -r requirements.txt
+```
 
 ## Example Feature Extraction
 First extract the zip to \<your directory\>
