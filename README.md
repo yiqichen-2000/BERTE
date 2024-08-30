@@ -12,7 +12,18 @@ This repository includes the implementations of BERTE from:
 ![workflow](https://github.com/yiqichen-2000/BERTE/assets/76149916/bb7ce8a9-b3d0-4239-b9f5-c9bdce724614)
 
 ## Requirement
+BERTE runs with conda
 
+h5py == 3.1.0
+
+tensorflow == 2.6.0
+tensorflow-gpu == 2.6.0
+python == 3.8.1
+
+cudnn == 8.9.2.26, cudatoolkit == 11.8.0
+
+
+## Example Feature Extraction
 First extract the zip to \<your directory\>
 ```
 cd \<your directory\>
@@ -20,7 +31,6 @@ unzip BERTE-main.zip
 cd BERTE-main/
 ```
 
-## Example Feature Extraction
 The usage is exemplified by the demo_SINE.fasta data \(which has been filtered for similarity\)
 
 This step is divided into **Feature extraction module based on BERT** and **Full-length k-mer extraction**
