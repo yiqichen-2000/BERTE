@@ -18,7 +18,7 @@ We evaluated BERTE’s performance on filtered datasets collected from 12 eukary
 ## TE hierarchical classification structure
 ![TE_hierarchical_classification_structure](Images/TE_hierarchical_classification_structure.png)
 
-# Requirement
+<!-- # Requirement
 BERTE runs with a conda virtual environment
 ```Bash
 conda create -n BERTE python=3.8.1
@@ -231,5 +231,5 @@ CUDA_VISIBLE_DEVICES=0 python BERTE_train.py ../working_files SINE 50 64
   - \<path\>: Path to the directory containing .pkl files.
   - \<rank\>: The selected rank name (i.e. parent node).
   - \<epoch\>: Number of epochs for training the model.
-  - \<batchsize\>: Batch size for training the model.
+  - \<batchsize\>: Batch size for training the model. -->
 
