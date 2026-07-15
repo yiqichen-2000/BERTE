@@ -19,13 +19,17 @@ models/berte_5mer_finetuned.h5
 models/berte_6mer_finetuned.h5
 ```
 
-The hierarchical RF model is distributed separately through Google Drive because `models/RF.pkl` is larger than GitHub's single-file size limit. Before running the test prediction step, download the RF model and save it as:
+The hierarchical RF model is distributed separately through MEGA because `models/RF.pkl` is larger than GitHub's single-file size limit. Before running the test prediction step, download the RF model and save it as:
 
 ```text
 models/RF.pkl
 ```
 
-Google Drive link: add the download link here.
+MEGA link:
+
+```text
+https://mega.nz/file/6FBhFYTb#zdUObVJEuDZmR4I-sTEakmLQbDLaOIRo14rRQeyrtuU
+```
 
 Input FASTA headers must use the following labelled format:
 
@@ -231,11 +235,36 @@ outputs/test_pipeline/work_data_1500bp/test_5mer_embeddings.pkl
 outputs/test_pipeline/work_data_1500bp/test_6mer_embeddings.pkl
 ```
 
-### 2.5 Predict with the Hierarchical RF Model
+### 2.5 Download the Hierarchical RF Model
+
+This step downloads the pretrained hierarchical RF model that is distributed separately from the GitHub repository.
+
+Install `megatools` once if `megadl` is not available in your environment:
+
+```bash
+conda install -c conda-forge megatools
+```
+
+Download the RF model:
+
+```bash
+mkdir -p models
+megadl --path models/RF.pkl \
+  'https://mega.nz/file/6FBhFYTb#zdUObVJEuDZmR4I-sTEakmLQbDLaOIRo14rRQeyrtuU'
+test -s models/RF.pkl
+```
+
+Expected output:
+
+```text
+models/RF.pkl
+```
+
+### 2.6 Predict with the Hierarchical RF Model
 
 This step combines BERTE embeddings and CDD features, then predicts class, order, and superfamily with the trained hierarchical RF model.
 
-Before running this command, make sure the separately downloaded RF model is available as `models/RF.pkl`.
+Before running this command, make sure the MEGA-downloaded RF model is available as `models/RF.pkl`.
 
 ```bash
 python -u code/hierarchical_classifier/predict_hierarchical_rf.py \
@@ -601,5 +630,6 @@ If you use BERTE, please cite:
 Yiqi Chen, Yang Qi, Yingfu Wu, Fuhao Zhang, Xingyi Li,
 Xingyu Liao*, and Xuequn Shang*,. BERTE manuscript under submission.
 ```
+
 
 
