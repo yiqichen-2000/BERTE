@@ -141,17 +141,7 @@ def main():
         balance=balance,
         nr_seqs=args.nr_seqs,
     )
-    f_val, c_val, _ = load_fragments_split(
-        args.fragments_dir,
-        classes=["class1", "class2"],
-        split="val",
-        shuffle_=True,
-        balance=balance,
-        nr_seqs=args.nr_seqs,
-    )
-
     print("len(c_train):", len(c_train))
-    print("len(c_val):", len(c_val))
 
     train_gen = FragmentGenerator(
         f_train,
@@ -161,15 +151,6 @@ def main():
         token_dict,
         token_list,
     )
-    val_gen = FragmentGenerator(
-        f_val,
-        args.seq_len,
-        args.kmer,
-        args.batch_size,
-        token_dict,
-        token_list,
-    )
-
     callbacks = [
         ModelCheckpoint(args.name + "_ep{epoch:02d}.h5"),
     ]
@@ -177,7 +158,6 @@ def main():
     model.fit(
         train_gen,
         epochs=args.epochs,
-        validation_data=val_gen,
         callbacks=callbacks,
     )
     model.save(args.name + "_trained.h5")

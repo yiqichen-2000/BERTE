@@ -19,16 +19,16 @@ models/berte_5mer_finetuned.h5
 models/berte_6mer_finetuned.h5
 ```
 
-The hierarchical RF model is distributed separately through MEGA because `models/RF.pkl` is larger than GitHub's single-file size limit. Before running the test prediction step, download the RF model and save it as:
+The hierarchical RF model is distributed separately through Zenodo because `models/RF.pkl` is larger than GitHub's single-file size limit. Before running the test prediction step, download `RF.pkl` from the Zenodo record and save it as:
 
 ```text
 models/RF.pkl
 ```
 
-MEGA link:
+Zenodo DOI:
 
 ```text
-https://mega.nz/file/6FBhFYTb#zdUObVJEuDZmR4I-sTEakmLQbDLaOIRo14rRQeyrtuU
+https://doi.org/10.5281/zenodo.22120261
 ```
 
 Input FASTA headers must use the following labelled format:
@@ -66,7 +66,7 @@ Create and activate the environment:
 
 ```bash
 conda env create -f environment.yml
-conda activate berte-new
+conda activate berte
 ```
 
 Check TensorFlow and RPSTBLASTN:
@@ -84,6 +84,20 @@ Default input:
 
 ```text
 input_fasta/demo_test.fasta
+```
+
+Executable shortcut:
+
+After the Conda environment is installed and `models/RF.pkl` has been downloaded from the Zenodo record, run the complete inference pipeline with:
+
+```bash
+bash run_test_pipeline.sh
+```
+
+The script uses `input_fasta/demo_test.fasta` by default and reproduces Sections 2.1-2.6, writing outputs to `outputs/test_pipeline/`. It sets `HDF5_USE_FILE_LOCKING=FALSE` by default to avoid HDF5 locking errors on shared file systems. Optional environment variables can override defaults, for example:
+
+```bash
+INPUT_FASTA=input_fasta/demo_test.fasta GPU_ID=0 THREADS=4 bash run_test_pipeline.sh
 ```
 
 ### 2.1 Create Test Output Directories
@@ -237,20 +251,18 @@ outputs/test_pipeline/work_data_1500bp/test_6mer_embeddings.pkl
 
 ### 2.5 Download the Hierarchical RF Model
 
-This step downloads the pretrained hierarchical RF model that is distributed separately from the GitHub repository.
+This step obtains the pretrained hierarchical RF model that is distributed separately from the GitHub repository through Zenodo.
 
-Install `megatools` once if `megadl` is not available in your environment:
+Download `RF.pkl` from the Zenodo record and save it under `models/`:
 
-```bash
-conda install -c conda-forge megatools
+```text
+https://doi.org/10.5281/zenodo.22120261
 ```
 
-Download the RF model:
+Check that the file is available at the expected path:
 
 ```bash
 mkdir -p models
-megadl --path models/RF.pkl \
-  'https://mega.nz/file/6FBhFYTb#zdUObVJEuDZmR4I-sTEakmLQbDLaOIRo14rRQeyrtuU'
 test -s models/RF.pkl
 ```
 
@@ -264,7 +276,7 @@ models/RF.pkl
 
 This step combines BERTE embeddings and CDD features, then predicts class, order, and superfamily with the trained hierarchical RF model.
 
-Before running this command, make sure the MEGA-downloaded RF model is available as `models/RF.pkl`.
+Before running this command, make sure the Zenodo-downloaded RF model is available as `models/RF.pkl`.
 
 ```bash
 python -u code/hierarchical_classifier/predict_hierarchical_rf.py \
@@ -445,7 +457,7 @@ Arguments:
 
 ### 3.4 Pretrain 3-mer to 6-mer BERTE Models
 
-This step pretrains separate BERTE models for 3-mer, 4-mer, 5-mer, and 6-mer tokenizations using the training fragments.
+This step pretrains separate BERTE models for 3-mer, 4-mer, 5-mer, and 6-mer tokenizations using only the training fragments.
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python -u code/pretraining/pretrain_berte.py outputs/train_pipeline/work_data_1500bp \
@@ -507,7 +519,7 @@ Fine-tuning writes stable, non-timestamped RF embedding files directly to `outpu
 CUDA_VISIBLE_DEVICES=0 python -u code/finetuning/finetune_berte.py \
   outputs/train_pipeline/results/k3mer/pretrain/berte_pretrain_1500_3mer_trained.h5 \
   outputs/train_pipeline/work_data_1500bp \
-  --batch_size 32 --epochs 10 --k 3 --stride 3 \
+  --batch_size 32 --epochs 4 --k 3 --stride 3 \
   --save_name outputs/train_pipeline/results/k3mer/finetune/berte_3mer_finetuned
 ```
 
@@ -515,7 +527,7 @@ CUDA_VISIBLE_DEVICES=0 python -u code/finetuning/finetune_berte.py \
 CUDA_VISIBLE_DEVICES=0 python -u code/finetuning/finetune_berte.py \
   outputs/train_pipeline/results/k4mer/pretrain/berte_pretrain_1500_4mer_trained.h5 \
   outputs/train_pipeline/work_data_1500bp \
-  --batch_size 32 --epochs 10 --k 4 --stride 4 \
+  --batch_size 32 --epochs 4 --k 4 --stride 4 \
   --save_name outputs/train_pipeline/results/k4mer/finetune/berte_4mer_finetuned
 ```
 
@@ -523,7 +535,7 @@ CUDA_VISIBLE_DEVICES=0 python -u code/finetuning/finetune_berte.py \
 CUDA_VISIBLE_DEVICES=0 python -u code/finetuning/finetune_berte.py \
   outputs/train_pipeline/results/k5mer/pretrain/berte_pretrain_1500_5mer_trained.h5 \
   outputs/train_pipeline/work_data_1500bp \
-  --batch_size 32 --epochs 10 --k 5 --stride 5 \
+  --batch_size 32 --epochs 4 --k 5 --stride 5 \
   --save_name outputs/train_pipeline/results/k5mer/finetune/berte_5mer_finetuned
 ```
 
@@ -531,7 +543,7 @@ CUDA_VISIBLE_DEVICES=0 python -u code/finetuning/finetune_berte.py \
 CUDA_VISIBLE_DEVICES=0 python -u code/finetuning/finetune_berte.py \
   outputs/train_pipeline/results/k6mer/pretrain/berte_pretrain_1500_6mer_trained.h5 \
   outputs/train_pipeline/work_data_1500bp \
-  --batch_size 32 --epochs 10 --k 6 --stride 6 \
+  --batch_size 32 --epochs 4 --k 6 --stride 6 \
   --save_name outputs/train_pipeline/results/k6mer/finetune/berte_6mer_finetuned
 ```
 
@@ -545,7 +557,7 @@ Arguments:
 | `--k` | `3` | K-mer size. Match the pretrained model. |
 | `--stride` | `3` | Tokenization stride. Use the same value as `--k`. |
 | `--batch_size` | `32` | Fine-tuning batch size. |
-| `--epochs` | `4` | Fine-tuning epochs. The example commands use `10`. |
+| `--epochs` | `4` | Fine-tuning epochs. |
 | `--nr_seqs` | `100000000` | Maximum number of fragments loaded from each split. |
 | `--learning_rate` | `5e-5` | Fine-tuning learning rate. |
 | `--save_name` | `None` | Output model prefix. Final model is saved as `<save_name>.h5`. |
@@ -559,7 +571,6 @@ Required RF embedding outputs:
 
 ```text
 outputs/train_pipeline/work_data_1500bp/train_3mer_embeddings.pkl
-outputs/train_pipeline/work_data_1500bp/val_3mer_embeddings.pkl
 outputs/train_pipeline/work_data_1500bp/test_3mer_embeddings.pkl
 ```
 
@@ -592,7 +603,7 @@ Arguments:
 
 ### 3.7 Train and Evaluate the Hierarchical RF Model
 
-This step trains the hierarchical RF classifier from BERTE embeddings and CDD features, then evaluates it on the held-out test split.
+This step trains the hierarchical RF classifier from train BERTE embeddings and CDD features, then evaluates it on the held-out test split.
 
 ```bash
 python -u code/hierarchical_classifier/train_hierarchical_rf.py \
@@ -607,7 +618,7 @@ Arguments:
 
 | Argument | Default | Meaning |
 |---|---:|---|
-| `fragments_dir` | Required | Work directory containing train/val/test embeddings, CDD features, labels, and fragment headers. |
+| `fragments_dir` | Required | Work directory containing train/test embeddings, CDD features, labels, and fragment headers. |
 | `--filePDB` | Required | CDD `.pn` list used to determine the protein-domain feature count. |
 | `--save_name` | `RF` | Output model prefix. The model is saved as `<save_name>.pkl`. |
 | `--threads` | `1` | CPU cores used by each Random Forest node model. Use `-1` for all available cores. |
@@ -620,7 +631,7 @@ outputs/train_pipeline/results/rf_classification/RF.pkl
 outputs/train_pipeline/results/rf_classification/RF_predictions.pkl
 ```
 
-Copy the trained BERTE `.h5` models into `models/` if the test workflow should use them as the default inference models. If you retrain the hierarchical RF model, keep the resulting `RF.pkl` outside the GitHub repository and distribute it separately, then place it at `models/RF.pkl` for local inference.
+Copy the trained BERTE `.h5` models into `models/` if the test workflow should use them as the default inference models. If you retrain the hierarchical RF model, keep the resulting `RF.pkl` outside the GitHub repository and distribute it separately, for example through Zenodo, then place it at `models/RF.pkl` for local inference.
 
 ## Citations
 
