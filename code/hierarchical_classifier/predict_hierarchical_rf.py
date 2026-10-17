@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Evaluate a trained BERTE hierarchical RF model on prepared test features.
+"""Predict with a trained BERTE hierarchical RF model; use --evaluate for metrics.
 
 Required files in fragments_dir for the selected split, usually "test":
   <split>_3mer_embeddings.pkl, <split>_4mer_embeddings.pkl, <split>_5mer_embeddings.pkl, <split>_6mer_embeddings.pkl
   <split>_cdd_features.txt
-  <split>_fragment_superfamilies.txt
+  <split>_fragment_superfamilies.txt (only with --evaluate)
   <split>_fragment_headers.txt
 
 run_test_pipeline.sh generates these files from the input FASTA. If this module
@@ -26,14 +26,13 @@ import numpy as np
 from sklearn.metrics import accuracy_score, classification_report, precision_recall_fscore_support
 
 CLASS_I = {
-    "Bel-Pao", "Copia", "Gypsy", "ERV", "ERV1", "ERV2", "ERV3", "ERV4",
+    "Bel-Pao", "Copia", "Gypsy", "ERV",
     "DIRS", "PLE", "CR1", "I", "Jockey", "L1", "R2", "RTE", "Rex1",
     "SINE1/7SL", "SINE2/tRNA", "SINE3/5S", "ID",
 }
 CLASS_II = {"CACTA", "MULE", "PIF", "TcMar", "hAT", "Helitron"}
 ORDER_BY_SUPERFAMILY = {
     "Bel-Pao": "LTR", "Copia": "LTR", "Gypsy": "LTR", "ERV": "LTR",
-    "ERV1": "LTR", "ERV2": "LTR", "ERV3": "LTR", "ERV4": "LTR",
     "DIRS": "DIRS", "PLE": "PLE",
     "CR1": "LINE", "I": "LINE", "Jockey": "LINE", "L1": "LINE",
     "R2": "LINE", "RTE": "LINE", "Rex1": "LINE",
@@ -41,11 +40,11 @@ ORDER_BY_SUPERFAMILY = {
     "CACTA": "TIR", "MULE": "TIR", "PIF": "TIR", "TcMar": "TIR", "hAT": "TIR",
     "Helitron": "Helitron",
 }
-PROTEIN_EVALUE_THRESHOLD = 0.0
+PROTEIN_EVALUE_THRESHOLD = 0.1
 
 
 def normalize_superfamily(label: str) -> str:
-    return "ERV" if "ERV" in str(label) else str(label)
+    return str(label)
 
 
 def taxonomy_path(superfamily: str) -> str:
@@ -67,14 +66,15 @@ def read_lines(path: Path) -> List[str]:
         return [line.strip() for line in handle if line.strip()]
 
 
-def validate_required_inputs(file_pdb: Path, fragments_dir: Path, split: str) -> None:
+def validate_required_inputs(file_pdb: Path, fragments_dir: Path, split: str, evaluate: bool = False) -> None:
     required = [
         file_pdb,
         fragments_dir / f"{split}_cdd_features.txt",
-        fragments_dir / f"{split}_fragment_superfamilies.txt",
         fragments_dir / f"{split}_fragment_headers.txt",
     ]
     required.extend(fragments_dir / f"{split}_{k}mer_embeddings.pkl" for k in (3, 4, 5, 6))
+    if evaluate:
+        required.append(fragments_dir / f"{split}_fragment_superfamilies.txt")
 
     missing = [str(path) for path in required if not path.is_file() or path.stat().st_size == 0]
     if missing:
@@ -116,10 +116,10 @@ def average_by_sequence(x: np.ndarray, fragment_names: List[str]) -> Tuple[np.nd
     return np.stack(averaged, axis=0), seq_names
 
 
-def load_split_features(file_pdb: Path, fragments_dir: Path, split: str):
+def load_split_features(file_pdb: Path, fragments_dir: Path, split: str, evaluate: bool = False):
     n_proteins = len(read_lines(file_pdb))
     protein_features = load_protein_features(fragments_dir / f"{split}_cdd_features.txt", n_proteins)
-    labels = read_lines(fragments_dir / f"{split}_fragment_superfamilies.txt")
+    labels = read_lines(fragments_dir / f"{split}_fragment_superfamilies.txt") if evaluate else None
     fragment_names = read_lines(fragments_dir / f"{split}_fragment_headers.txt")
 
     embedding_outputs: List[np.ndarray] = []
@@ -135,8 +135,10 @@ def load_split_features(file_pdb: Path, fragments_dir: Path, split: str):
     n_rows = embedding_outputs[0].shape[0]
     if any(arr.shape[0] != n_rows for arr in embedding_outputs):
         raise ValueError(f"Inconsistent embedding row counts for split {split}: {[arr.shape for arr in embedding_outputs]}")
-    if n_rows != len(labels) or n_rows != len(fragment_names):
-        raise ValueError(f"{split} fragment mismatch: embeddings={n_rows}, labels={len(labels)}, names={len(fragment_names)}")
+    if n_rows != len(fragment_names):
+        raise ValueError(f"{split} fragment mismatch: embeddings={n_rows}, names={len(fragment_names)}")
+    if evaluate and n_rows != len(labels):
+        raise ValueError(f"{split} evaluation label mismatch: embeddings={n_rows}, labels={len(labels)}")
 
     fragment_features = np.concatenate(embedding_outputs, axis=1)
     averaged_embeddings, seq_names = average_by_sequence(fragment_features, fragment_names)
@@ -146,10 +148,16 @@ def load_split_features(file_pdb: Path, fragments_dir: Path, split: str):
             f"averaged_embeddings={averaged_embeddings.shape[0]}"
         )
 
-    seq_to_labels: Dict[str, List[str]] = defaultdict(list)
-    for fragment_name, label in zip(fragment_names, labels):
-        seq_to_labels[sequence_base(fragment_name)].append(label)
-    seq_labels = [normalize_superfamily(seq_to_labels[name][0]) for name in seq_names]
+    seq_labels = None
+    if evaluate:
+        seq_to_labels: Dict[str, List[str]] = defaultdict(list)
+        for fragment_name, label in zip(fragment_names, labels):
+            if label not in CLASS_I | CLASS_II:
+                raise ValueError(f"Unknown evaluation superfamily: {label!r}")
+            seq_to_labels[sequence_base(fragment_name)].append(normalize_superfamily(label))
+        if any(len(set(values)) != 1 for values in seq_to_labels.values()):
+            raise ValueError("Conflicting evaluation labels within one sequence.")
+        seq_labels = [seq_to_labels[name][0] for name in seq_names]
 
     features = np.concatenate([protein_features, averaged_embeddings], axis=1).astype(np.float32)
     print(f"{split}: protein={protein_features.shape}, averaged_embeddings={averaged_embeddings.shape}, features={features.shape}")
@@ -171,6 +179,22 @@ def get_children(nodes: Iterable[str]) -> Dict[str | None, List[str]]:
         parent = node.rsplit("|", 1)[0] if "|" in node else None
         children[parent].append(node)
     return {parent: sorted(items) for parent, items in children.items()}
+
+
+def build_inference_nodes(models: Dict[str, object]) -> List[str]:
+    # Include deterministic single-child leaves even when no RF was trained for them.
+    # This schema is for the full BERTE taxonomy: 2 classes, 7 orders, 23 superfamilies.
+    superfamilies = sorted({normalize_superfamily(sf) for sf in CLASS_I | CLASS_II})
+    nodes = build_nodes([taxonomy_path(sf) for sf in superfamilies], ())
+    unexpected = set(models) - set(nodes)
+    if unexpected:
+        raise ValueError(f"Model nodes outside the declared taxonomy: {sorted(unexpected)}")
+    required = {node for siblings in get_children(nodes).values() if len(siblings) > 1 for node in siblings}
+    missing = required - set(models)
+    if missing:
+        raise ValueError(f"Missing RF decision models for the full BERTE taxonomy: {sorted(missing)}")
+    return nodes
+
 
 
 def positive_class_probability(model, x: np.ndarray) -> np.ndarray:
@@ -205,11 +229,23 @@ def predict_hierarchy(models: Dict[str, object], x: np.ndarray, nodes: List[str]
             if len(candidates) == 1:
                 best_node = candidates[0]
                 best_score = float(all_probs.get(best_node, np.ones(x.shape[0]))[i])
+
             else:
-                scored = [(node, float(all_probs[node][i])) for node in candidates if node in all_probs]
+                scored = [
+                    (node, float(all_probs[node][i]))
+                    for node in candidates
+                    if node in all_probs
+                ]
                 if not scored:
                     break
-                best_node, best_score = max(scored, key=lambda item: item[1])
+
+                for node, score in scored:
+                    prob_matrix[i, node_to_idx[node]] = score
+
+                best_node, best_score = max(
+                    scored, key=lambda item: item[1]
+                )
+
             pred_matrix[i, node_to_idx[best_node]] = 1
             prob_matrix[i, node_to_idx[best_node]] = best_score
             selected.append(best_node)
@@ -262,25 +298,22 @@ def write_metrics(path: Path, metrics: Dict[str, float]) -> None:
         writer.writerow({key: metrics[key] for key in fields})
 
 
-def write_sequence_predictions(path: Path, names: List[str], y_true: List[str], y_pred: List[str]) -> None:
-    fields = ["sequence_name", "true_path", "pred_path", "true_class", "true_order", "true_superfamily", "pred_class", "pred_order", "pred_superfamily"]
+def write_sequence_predictions(path: Path, names: List[str],
+                               y_true: List[str] | None, y_pred: List[str]) -> None:
+    if len(names) != len(y_pred) or (y_true is not None and len(y_true) != len(names)):
+        raise ValueError("Prediction output lengths do not match.")
+    fields = ["sequence_name", "pred_path", "pred_class", "pred_order", "pred_superfamily"]
+    if y_true is not None:
+        fields += ["true_path", "true_class", "true_order", "true_superfamily"]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, delimiter="\t")
         writer.writeheader()
-        for name, true_path, pred_path in zip(names, y_true, y_pred):
-            true_parts = split_path(true_path)
+        for idx, (name, pred_path) in enumerate(zip(names, y_pred)):
             pred_parts = split_path(pred_path)
-            writer.writerow({
-                "sequence_name": name,
-                "true_path": true_path,
-                "pred_path": pred_path,
-                "true_class": true_parts[0],
-                "true_order": true_parts[1],
-                "true_superfamily": true_parts[2],
-                "pred_class": pred_parts[0],
-                "pred_order": pred_parts[1],
-                "pred_superfamily": pred_parts[2],
-            })
+            row = dict(zip(fields[:5], [name, pred_path] + pred_parts))
+            if y_true is not None:
+                row.update(dict(zip(fields[5:], [y_true[idx]] + split_path(y_true[idx]))))
+            writer.writerow(row)
 
 
 def main() -> None:
@@ -293,6 +326,7 @@ def main() -> None:
     parser.add_argument("--output_dir", type=Path, default=Path("."))
     parser.add_argument("--threads", type=int, default=1, help="CPU cores used by each Random Forest node model.")
     parser.add_argument("--store_predictions", action="store_true", help="Accepted for command compatibility; predictions are always stored.")
+    parser.add_argument("--evaluate", action="store_true", help="Read true labels and additionally calculate evaluation metrics.")
     args = parser.parse_args()
     if args.threads == 0:
         raise ValueError("--threads must be a positive integer or -1 for all available CPU cores.")
@@ -303,30 +337,32 @@ def main() -> None:
         raise ValueError(f"Expected a non-empty dict of RF node models in {args.model_path}")
     set_model_threads(models, args.threads)
 
-    validate_required_inputs(args.filePDB, args.fragments_dir, args.split)
+    validate_required_inputs(args.filePDB, args.fragments_dir, args.split, args.evaluate)
 
-    x, labels, seq_names, embedding_shapes = load_split_features(args.filePDB, args.fragments_dir, args.split)
+    x, labels, seq_names, embedding_shapes = load_split_features(args.filePDB, args.fragments_dir, args.split, args.evaluate)
     expected_dims = sorted({getattr(model, "n_features_in_", x.shape[1]) for model in models.values()})
     if expected_dims != [x.shape[1]]:
         raise ValueError(f"Feature dimension mismatch: model expects {expected_dims}, loaded features have {x.shape[1]}")
 
-    y_true_paths = [taxonomy_path(label) for label in labels]
-    nodes = build_nodes(y_true_paths, models.keys())
+    nodes = build_inference_nodes(models)
     pred_matrix, prob_matrix, y_pred_paths = predict_hierarchy(models, x, nodes)
-    metrics = compute_metrics(y_true_paths, y_pred_paths)
+    y_true_paths = [taxonomy_path(label) for label in labels] if args.evaluate else None
+    metrics = compute_metrics(y_true_paths, y_pred_paths) if args.evaluate else None
 
     print("Loaded model nodes:", len(models))
     print("Prediction nodes:", len(nodes))
-    print("True label counts:", dict(sorted(Counter(y_true_paths).items())))
     print("Pred label counts:", dict(sorted(Counter(y_pred_paths).items())))
-    print("=== Full-path classification report ===")
-    print(classification_report(y_true_paths, y_pred_paths, zero_division=0, digits=4))
-    print("=== Summary metrics ===")
-    for key, value in metrics.items():
-        print(f"{key}\t{value:.6f}")
+    if args.evaluate:
+        print("True label counts:", dict(sorted(Counter(y_true_paths).items())))
+        print("=== Full-path classification report ===")
+        print(classification_report(y_true_paths, y_pred_paths, zero_division=0, digits=4))
+        print("=== Summary metrics ===")
+        for key, value in metrics.items():
+            print(f"{key}\t{value:.6f}")
 
     result_prefix = args.output_dir / args.save_name
     results = {
+        "mode": "evaluation" if args.evaluate else "prediction",
         "model_path": str(args.model_path),
         "fragments_dir": str(args.fragments_dir),
         "filePDB": str(args.filePDB),
@@ -343,10 +379,12 @@ def main() -> None:
     }
     joblib.dump(results, f"{result_prefix}.joblib")
     joblib.dump(results, f"{result_prefix}.pkl")
-    write_metrics(Path(f"{result_prefix}_metrics.tsv"), metrics)
+    if args.evaluate:
+        write_metrics(Path(f"{result_prefix}_metrics.tsv"), metrics)
     write_sequence_predictions(Path(f"{result_prefix}_sequence_predictions.tsv"), seq_names, y_true_paths, y_pred_paths)
     print("Saved predictions to", f"{result_prefix}.pkl")
-    print("Saved metrics to", f"{result_prefix}_metrics.tsv")
+    if args.evaluate:
+        print("Saved metrics to", f"{result_prefix}_metrics.tsv")
     print("Saved sequence table to", f"{result_prefix}_sequence_predictions.tsv")
 
 

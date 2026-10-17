@@ -3,7 +3,6 @@
 import json
 import os
 import random
-from random import sample
 
 
 def _read_json(path):
@@ -38,6 +37,13 @@ def load_fragments_split(fragments_dir, classes, split, shuffle_=True, balance=F
     if nr_seqs is None or nr_seqs > nr_seqs_max:
         nr_seqs = nr_seqs_max
 
+    if balance and nr_seqs == 0:
+        raise ValueError(
+            'Balanced pretraining requires a non-empty input for every class.'
+        )
+
+    rng = random.Random(seed)
+    
     x = []
     y = []
     y_superfamilies = []
@@ -45,7 +51,7 @@ def load_fragments_split(fragments_dir, classes, split, shuffle_=True, balance=F
     for index, (class_name, class_fragments) in enumerate(fragments_by_class):
         class_superfamilies = superfamilies_by_class[index]
         if balance:
-            picked = sample(list(zip(class_fragments, class_superfamilies)), nr_seqs)
+            picked = rng.sample(list(zip(class_fragments, class_superfamilies)), nr_seqs)
             picked_fragments, picked_superfamilies = zip(*picked)
             x.extend(picked_fragments)
             y_superfamilies.extend(picked_superfamilies)
@@ -59,7 +65,6 @@ def load_fragments_split(fragments_dir, classes, split, shuffle_=True, balance=F
         raise AssertionError("fragment and label counts differ")
 
     if shuffle_:
-        rng = random.Random(seed)
         combined = list(zip(x, y, y_superfamilies))
         rng.shuffle(combined)
         x, y, y_superfamilies = zip(*combined)

@@ -1,5 +1,7 @@
 # BERTE Train and Test Pipeline
 
+Version: 1.0.0
+
 BERTE is a computational workflow for transposable element classification. It combines multi-scale 3-mer to 6-mer BERTE sequence embeddings, CDD protein-domain features, and a hierarchical Random Forest classifier to predict transposable element class, order, and superfamily.
 
 ## Model Workflow
@@ -28,10 +30,10 @@ models/RF.pkl
 Zenodo DOI:
 
 ```text
-https://doi.org/10.5281/zenodo.22120261
+https://doi.org/10.5281/zenodo.22120262
 ```
 
-Input FASTA headers must use the following labelled format:
+Training and labelled evaluation require FASTA headers in the following format. Sequence IDs must be unique and must not contain whitespace or underscores followed by digits. For prediction without labels, see Section 2.7. 
 
 ```text
 >sequence_id|superfamily|database
@@ -78,7 +80,7 @@ rpstblastn -version
 
 ## 2. Model Test Workflow
 
-The test workflow uses models in `models/` and a labelled FASTA file.
+The following workflow evaluates models in `models/` using a labelled FASTA file. For prediction without labels, see Section 2.7.
 
 Default input:
 
@@ -88,16 +90,16 @@ input_fasta/demo_test.fasta
 
 Executable shortcut:
 
-After the Conda environment is installed and `models/RF.pkl` has been downloaded from the Zenodo record, run the complete inference pipeline with:
+After the Conda environment is installed and `models/RF.pkl` has been downloaded from the Zenodo record, run the complete evaluation pipeline with:
 
 ```bash
-bash run_test_pipeline.sh
+EVALUATE=1 bash run_test_pipeline.sh
 ```
 
-The script uses `input_fasta/demo_test.fasta` by default and reproduces Sections 2.1-2.6, writing outputs to `outputs/test_pipeline/`. It sets `HDF5_USE_FILE_LOCKING=FALSE` by default to avoid HDF5 locking errors on shared file systems. Optional environment variables can override defaults, for example:
+Results are written to `outputs/test_pipeline/`. The pipeline sets `HDF5_USE_FILE_LOCKING=FALSE` by default to avoid HDF5 locking errors on shared file systems. Optional environment variables can override defaults, for example:
 
 ```bash
-INPUT_FASTA=input_fasta/demo_test.fasta GPU_ID=0 THREADS=4 bash run_test_pipeline.sh
+INPUT_FASTA=input_fasta/demo_test.fasta GPU_ID=0 THREADS=4 EVALUATE=1 bash run_test_pipeline.sh
 ```
 
 ### 2.1 Create Test Output Directories
@@ -118,18 +120,19 @@ This step fragments long test sequences and writes the fragment-level labels and
 python -u code/preprocessing/preprocess_test_fasta.py input_fasta/demo_test.fasta \
   --fragment-size 1500 \
   --output-dir outputs/test_pipeline/work_data_1500bp \
-  --prefix test
+  --prefix test \
+  --evaluate
 ```
 
 Arguments:
 
 | Argument | Default | Meaning |
 |---|---:|---|
-| `fasta` | Required | Labelled input FASTA. |
+| `fasta` | Required | Input FASTA; labels are required only with `--evaluate`. |
 | `--fragment-size`, `-l` | `1500` | Maximum fragment length. Sequences longer than this value are split into multiple fragments. |
 | `--output-dir`, `-o` | `.` | Directory for fragment files, labels, headers, and summary files. |
 | `--prefix`, `-p` | `test` | Output filename prefix used by downstream steps. |
-| `--allow-bad-headers` | `False` | Allow malformed FASTA headers. This is not recommended for labelled evaluation. |
+| `--evaluate` | `False` | Extract reference labels for evaluation. |
 
 Expected outputs:
 
@@ -256,13 +259,15 @@ This step obtains the pretrained hierarchical RF model that is distributed separ
 Download `RF.pkl` from the Zenodo record and save it under `models/`:
 
 ```text
-https://doi.org/10.5281/zenodo.22120261
+https://doi.org/10.5281/zenodo.22120262
 ```
 
-Check that the file is available at the expected path:
+Download the model and check that the file is available at the expected path:
 
 ```bash
 mkdir -p models
+curl -fL --retry 3 -o models/RF.pkl \
+  "https://zenodo.org/records/22120262/files/RF.pkl?download=1"
 test -s models/RF.pkl
 ```
 
@@ -272,9 +277,9 @@ Expected output:
 models/RF.pkl
 ```
 
-### 2.6 Predict with the Hierarchical RF Model
+### 2.6 Predict and Evaluate with the Hierarchical RF Model
 
-This step combines BERTE embeddings and CDD features, then predicts class, order, and superfamily with the trained hierarchical RF model.
+This step combines BERTE embeddings and CDD features, predicts class, order, and superfamily, and evaluates predictions against reference labels.
 
 Before running this command, make sure the Zenodo-downloaded RF model is available as `models/RF.pkl`.
 
@@ -287,7 +292,8 @@ python -u code/hierarchical_classifier/predict_hierarchical_rf.py \
   --save_name berte_predictions \
   --output_dir outputs/test_pipeline \
   --threads 4 \
-  --store_predictions
+  --store_predictions \
+  --evaluate
 ```
 
 Arguments:
@@ -295,13 +301,14 @@ Arguments:
 | Argument | Default | Meaning |
 |---|---:|---|
 | `model_path` | Required | Trained hierarchical RF model, for example `models/RF.pkl`. |
-| `fragments_dir` | Required | Work directory containing embeddings, CDD features, fragment labels, and fragment headers. |
+| `fragments_dir` | Required | Work directory containing embeddings, CDD features, and fragment headers; labels are required only with `--evaluate`. |
 | `--filePDB` | Required | CDD `.pn` list used to determine the protein-domain feature count. |
 | `--split` | `test` | Split prefix used to load `test_*` intermediate files. |
 | `--save_name` | `berte_rf_model_test` | Output filename prefix. |
+| `--evaluate` | `False` | Read reference labels and calculate evaluation metrics. |
 | `--output_dir` | `.` | Directory for prediction tables, metrics, and serialized results. |
 | `--threads` | `1` | CPU cores used by each Random Forest node model. Use `-1` for all available cores. |
-| `--store_predictions` | `False` | Save the predictions results. |
+| `--store_predictions` | `False` | Predictions are saved whether or not this flag is supplied. |
 
 Final outputs:
 
@@ -321,9 +328,49 @@ outputs/test_pipeline -> outputs/my_test
 
 Keep `--prefix test` unless all downstream `test_*` intermediate filenames are also renamed consistently.
 
+### 2.7 Standalone Inference without Labels
+
+Prediction does not require taxonomic labels. Prepare an input FASTA such as `input_fasta/my_sequences.fasta`, with a unique sequence ID in each header:
+
+```text
+>seqA
+ACGTACGTACGT
+```
+
+Use sequence IDs without whitespace or underscores followed by digits. After installing the environment and downloading `models/RF.pkl`, run:
+
+```bash
+INPUT_FASTA=input_fasta/my_sequences.fasta OUTPUT_DIR=outputs/inference EVALUATE=0 GPU_ID=0 THREADS=4 bash run_test_pipeline.sh
+```
+
+`EVALUATE=0` is the default and runs preprocessing, feature extraction, and RF prediction without reading reference labels. For the individual commands in Sections 2.2-2.6, use the new input and output paths and omit `--evaluate` from both preprocessing and RF prediction.
+
+If the embeddings, CDD features, and fragment headers are already available, run the RF predictor directly:
+
+```bash
+python -u code/hierarchical_classifier/predict_hierarchical_rf.py \
+  models/RF.pkl \
+  outputs/inference/work_data_1500bp \
+  --filePDB CDD/RPSTBLASTN_LIB/db_large.pn \
+  --split test \
+  --save_name berte_predictions \
+  --output_dir outputs/inference \
+  --threads 4
+```
+
+Outputs:
+
+```text
+outputs/inference/berte_predictions_sequence_predictions.tsv
+outputs/inference/berte_predictions.pkl
+outputs/inference/berte_predictions.joblib
+```
+
+The TSV file contains sequence-level class, order, and superfamily predictions. Reference-label columns and evaluation metrics are produced only with `--evaluate` (or `EVALUATE=1` for the pipeline).
+
 ## 3. Model Training Workflow
 
-Training data are not distributed with this repository. Prepare labelled train, validation, and test FASTA files before running this workflow.
+Prepare labelled train, validation, and test FASTA files before running this workflow.
 
 Recommended input paths:
 
@@ -391,11 +438,10 @@ Arguments:
 | `fasta` | Required | One or more labelled input FASTA files. |
 | `--fragment-size`, `-l` | `1500` | Maximum fragment length. Longer sequences are split into fixed-size fragments. |
 | `--output-dir`, `-o` | Input FASTA directory | Directory for fragment JSON files, fragment labels, and fragment headers. |
-| `--prefix`, `-p` | FASTA stem | Output filename prefix. Use `train`, `val`, and `test` in this workflow. |
+| `--prefix`, `-p` | FASTA stem | Output filename prefix; valid for one input FASTA at a time. Use `train`, `val`, and `test` in this workflow. |
 | `--seed` | `42` | Random seed used only when `--shuffle` is enabled. |
 | `--shuffle` | `False` | Shuffle records before fragmentation. Do not use this in the standard workflow. |
 | `--no-shuffle` | `True` | Keep original FASTA order. Required for direct CDD feature alignment. |
-| `--allow-bad-headers` | `False` | Skip malformed FASTA headers instead of raising an error. Not recommended for training. |
 
 Expected files include:
 
@@ -506,7 +552,7 @@ Arguments:
 | `--feed_forward_dim` | `1024` | Feed-forward layer dimension. |
 | `--dropout_rate` | `0.05` | Dropout rate. |
 | `--epochs` | `10` | Pretraining epochs. |
-| `--no_balance` | `True` | Use all available class fragments without class balancing. |
+| `--no_balance` | `True` | Disable class balancing. Set to `false` to enable balanced sampling; `--nr_seqs` then limits fragments per class. |
 | `--name` | `berte_pretrained` | Output model prefix. Final model is saved as `<name>_trained.h5`. |
 
 ### 3.5 Fine-Tune 3-mer to 6-mer BERTE Models
@@ -553,15 +599,15 @@ Arguments:
 |---|---:|---|
 | `pretrained_bert` | Required | Pretrained BERTE `.h5` model from the previous step. |
 | `fragments_dir` | Required | Work directory containing `train`, `val`, and `test` fragment files. |
-| `--seq_len` | `502` | Requested token sequence length. |
+| `--seq_len` | `502` | Requested token sequence length, capped at the model input limit. |
 | `--k` | `3` | K-mer size. Match the pretrained model. |
 | `--stride` | `3` | Tokenization stride. Use the same value as `--k`. |
 | `--batch_size` | `32` | Fine-tuning batch size. |
-| `--epochs` | `4` | Fine-tuning epochs. |
-| `--nr_seqs` | `100000000` | Maximum number of fragments loaded from each split. |
+| `--epochs` | `4` | Maximum fine-tuning epochs. |
+| `--nr_seqs` | `100000000` | Maximum training fragments used for fine-tuning. Set to `0` to use all. Validation, test, and embedding exports use complete splits. |
 | `--learning_rate` | `5e-5` | Fine-tuning learning rate. |
-| `--save_name` | `None` | Output model prefix. Final model is saved as `<save_name>.h5`. |
-| `--store_predictions` | `False` | Store voted test predictions and print balanced accuracy only. |
+| `--save_name` | `None` | Output model prefix. Saves `<save_name>.h5`; if omitted, appends `_finetuned.h5` to the input model path without its extension. |
+| `--store_predictions` | `False` | Save test-fragment predictions and print sequence-level balanced accuracy. |
 | `--only_test_model` | `False` | Evaluate an existing model without training. |
 | `--export_embeddings_only` | `False` | Load an existing fine-tuned model, export train/val/test embeddings to `fragments_dir`, and exit. |
 
@@ -622,7 +668,7 @@ Arguments:
 | `--filePDB` | Required | CDD `.pn` list used to determine the protein-domain feature count. |
 | `--save_name` | `RF` | Output model prefix. The model is saved as `<save_name>.pkl`. |
 | `--threads` | `1` | CPU cores used by each Random Forest node model. Use `-1` for all available cores. |
-| `--store_predictions` | `False` | Save the predictions results. |
+| `--store_predictions` | `False` | Predictions are saved whether or not this flag is supplied. |
 
 Final outputs:
 

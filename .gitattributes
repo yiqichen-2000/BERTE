@@ -1,0 +1,15 @@
+* text=auto
+
+*.py text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.fasta text eol=lf
+*.fa text eol=lf
+
+*.h5 binary
+*.pkl binary
+*.xlsx binary
+*.docx binary
+*.pdf binary

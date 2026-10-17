@@ -77,6 +77,27 @@ def read_fasta(path: Path) -> list[tuple[str, str]]:
 
     return records
 
+def validate_sequence_ids(records: list[tuple[str, str]]) -> None:
+    seen = set()
+
+    for header, _ in records:
+        sequence_id = header.split("|", 1)[0]
+
+        if (
+            not sequence_id
+            or any(char.isspace() for char in sequence_id)
+            or re.search(r"_\d+", sequence_id)
+        ):
+            raise ValueError(
+                f"Unsupported sequence ID: {sequence_id!r}. "
+                "Use a non-empty ID without whitespace or "
+                "underscores followed by digits."
+            )
+
+        if sequence_id in seen:
+            raise ValueError(f"Duplicate sequence ID: {sequence_id!r}")
+
+        seen.add(sequence_id)
 
 def write_fasta(records: list[tuple[str, str]], path: Path, line_width: int = 80) -> None:
     with path.open("w", encoding="utf-8", newline="\n") as handle:
@@ -86,16 +107,14 @@ def write_fasta(records: list[tuple[str, str]], path: Path, line_width: int = 80
                 handle.write(sequence[i : i + line_width] + "\n")
 
 
-def get_superfamily(header: str, strict: bool = True) -> str | None:
+def get_superfamily(header: str) -> str:
     parts = header.split("|")
     if len(parts) >= 3:
         return parts[1]
-    if strict:
-        raise ValueError(
-            f"Header format error: >{header}\n"
-            "Expected format like: >1112675|Bel-Pao|Dfam"
-        )
-    return None
+    raise ValueError(
+        f"Header format error: >{header}\n"
+        "Expected format like: >1112675|Bel-Pao|Dfam"
+    )
 
 
 def shuffle_records(
@@ -134,16 +153,14 @@ def split_records(
 
 
 def split_class_records(
-    records: list[tuple[str, str]], strict: bool
+    records: list[tuple[str, str]]
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]], Counter[str]]:
     class_i_records: list[tuple[str, str]] = []
     class_ii_records: list[tuple[str, str]] = []
     counts: Counter[str] = Counter()
 
     for header, sequence in records:
-        superfamily = get_superfamily(header, strict=strict)
-        if superfamily is None:
-            continue
+        superfamily = get_superfamily(header)
 
         counts[superfamily] += 1
         if superfamily in CLASS_I:
@@ -157,15 +174,10 @@ def split_class_records(
 def write_fragment_inputs(
     records: list[tuple[str, str]],
     out_prefix: Path,
-    strict: bool,
 ) -> None:
     fragments = [sequence for _, sequence in records]
     headers = [header for header, _ in records]
-    superfamilies = [
-        superfamily
-        for header, _ in records
-        if (superfamily := get_superfamily(header, strict=strict)) is not None
-    ]
+    superfamilies = [get_superfamily(header) for header, _ in records]
 
     with (out_prefix.parent / f"{out_prefix.name}_fragments.json").open(
         "w", encoding="utf-8", newline="\n"
@@ -185,7 +197,12 @@ def write_fragment_inputs(
 
 
 def process_one_fasta(args: argparse.Namespace, fasta_path: Path, prefix: str) -> None:
-    output_dir = Path(args.output_dir) if args.output_dir else fasta_path.parent
+    fasta_path = fasta_path.expanduser().resolve()
+    output_dir = (
+        Path(args.output_dir).expanduser().resolve()
+        if args.output_dir
+        else fasta_path.parent
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\nProcessing: {fasta_path}")
@@ -194,54 +211,43 @@ def process_one_fasta(args: argparse.Namespace, fasta_path: Path, prefix: str) -
     records = read_fasta(fasta_path)
     if not records:
         raise ValueError(f"No FASTA records found in {fasta_path}")
+    validate_sequence_ids(records)
 
     if args.no_shuffle:
-        shuffled_records = records
-        shuffled_fasta = output_dir / f"{prefix}.fasta"
+        ordered_records = records
     else:
-        shuffled_records = shuffle_records(records, args.seed)
-        shuffled_fasta = output_dir / f"{prefix}_shuffled.fasta"
-        write_fasta(shuffled_records, shuffled_fasta)
+        ordered_records = shuffle_records(records, args.seed)
 
-    fragmented_records = split_records(shuffled_records, args.fragment_size)
-    fragment_stem = f"{prefix}_frg" if args.no_shuffle else f"{prefix}_shuffled_frg"
-    fragment_fasta = output_dir / f"{fragment_stem}.fasta"
-    write_fasta(fragmented_records, fragment_fasta)
+    fragmented_records = split_records(
+        ordered_records, args.fragment_size
+    )
 
     class_i_records, class_ii_records, counts = split_class_records(
-        fragmented_records, strict=not args.allow_bad_headers
+        fragmented_records
     )
-    unsupported = sorted(name for name in counts if name not in CLASS_I and name not in CLASS_II)
+
+    unsupported = sorted(
+        name for name in counts
+        if name not in CLASS_I and name not in CLASS_II
+    )
     if unsupported:
         raise ValueError(
             "Unsupported superfamily labels for class1/class2 training split: "
             + ", ".join(unsupported)
-            + ". Add these labels to CLASS_I or CLASS_II before fine-tuning."
         )
-    class_i_fasta = output_dir / f"{fragment_stem}_ClassI.fasta"
-    class_ii_fasta = output_dir / f"{fragment_stem}_ClassII.fasta"
-    write_fasta(class_i_records, class_i_fasta)
-    write_fasta(class_ii_records, class_ii_fasta)
 
     write_fragment_inputs(
         fragmented_records,
         output_dir / prefix,
-        strict=not args.allow_bad_headers,
     )
     write_fragment_inputs(
         class_i_records,
         output_dir / f"class1_{prefix}",
-        strict=not args.allow_bad_headers,
     )
     write_fragment_inputs(
         class_ii_records,
         output_dir / f"class2_{prefix}",
-        strict=not args.allow_bad_headers,
     )
-
-    for path in [shuffled_fasta, fragment_fasta, class_i_fasta, class_ii_fasta]:
-        if path != fasta_path and path.exists():
-            path.unlink()
 
     print(f"Input records: {len(records)}")
     print(f"Fragment records: {len(fragmented_records)}")
@@ -300,11 +306,6 @@ def parse_args() -> argparse.Namespace:
         help="Do not shuffle records before fragmentation. This is the default.",
     )
     parser.set_defaults(no_shuffle=True)
-    parser.add_argument(
-        "--allow-bad-headers",
-        action="store_true",
-        help="Skip records with malformed headers instead of raising an error.",
-    )
     return parser.parse_args()
 
 
