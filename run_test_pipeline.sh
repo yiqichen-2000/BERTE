@@ -18,6 +18,13 @@ GPU_ID="${GPU_ID:-0}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 SEQ_LEN="${SEQ_LEN:-502}"
 SAVE_NAME="${SAVE_NAME:-berte_predictions}"
+EVALUATE="${EVALUATE:-0}"
+MODE_ARGS=()
+case "$EVALUATE" in
+  0) ;;
+  1) MODE_ARGS=(--evaluate) ;;
+  *) echo "EVALUATE must be 0 (prediction) or 1 (labelled evaluation)." >&2; exit 1 ;;
+esac
 export HDF5_USE_FILE_LOCKING="${HDF5_USE_FILE_LOCKING:-FALSE}"
 
 require_file() {
@@ -42,6 +49,7 @@ python -u code/preprocessing/preprocess_test_fasta.py "$INPUT_FASTA" \
   --fragment-size "$FRAGMENT_SIZE" \
   --output-dir "$WORK_DIR" \
   --prefix "$PREFIX" \
+  "${MODE_ARGS[@]}" \
   2>&1 | tee "$LOG_DIR/01_preprocess_test_fasta.log"
 
 echo "[3/6] Extracting CDD protein-domain features"
@@ -81,6 +89,7 @@ python -u code/hierarchical_classifier/predict_hierarchical_rf.py \
   --output_dir "$OUTPUT_DIR" \
   --threads "$THREADS" \
   --store_predictions \
+  "${MODE_ARGS[@]}" \
   2>&1 | tee "$LOG_DIR/04_predict_hierarchical_rf.log"
 
 echo "Test inference pipeline completed. Outputs are under: $OUTPUT_DIR"

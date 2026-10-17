@@ -5,7 +5,6 @@ import os
 import random
 import re
 from collections import defaultdict
-from random import sample
 
 import numpy as np
 
@@ -133,51 +132,83 @@ def load_fragments_finetune(
     balance=False,
     nr_seqs=None,
 ):
-    fragments = []
-    superfamilies = []
-    fragment_names = []
+    class_data = []
+
     for class_name in classes:
         prefix = f'{class_name}_{file_suffix}'
-        fragments.append((class_name, read_json(os.path.join(
-            fragments_dir, f'{prefix}_fragments.json'))))
-        superfamilies.append(read_lines(os.path.join(
-            fragments_dir, f'{prefix}_fragment_superfamilies.txt')))
-        fragment_names.extend(read_lines(os.path.join(
-            fragments_dir, f'{prefix}_fragment_headers.txt')))
 
-    original_fragment_names = read_lines(os.path.join(
-        fragments_dir, f'{file_suffix}_fragment_headers.txt'))
-    nr_seqs_max = min(len(class_fragments) for _, class_fragments in fragments)
-    if nr_seqs is None or nr_seqs > nr_seqs_max:
-        nr_seqs = nr_seqs_max
+        fragments = read_json(os.path.join(
+            fragments_dir, f'{prefix}_fragments.json'))
+        superfamilies = read_lines(os.path.join(
+            fragments_dir, f'{prefix}_fragment_superfamilies.txt'))
+        names = read_lines(os.path.join(
+            fragments_dir, f'{prefix}_fragment_headers.txt'))
 
-    x = []
-    y = []
-    y_superfamilies = []
-    for index, (class_name, class_fragments) in enumerate(fragments):
-        class_superfamilies = superfamilies[index]
-        if balance:
-            picked = sample(list(zip(class_fragments, class_superfamilies)), nr_seqs)
-            picked_fragments, picked_superfamilies = zip(*picked)
-            x.extend(picked_fragments)
-            y.extend([class_name] * nr_seqs)
-            y_superfamilies.extend(picked_superfamilies)
-        else:
-            x.extend(class_fragments)
-            y.extend([class_name] * len(class_fragments))
-            y_superfamilies.extend(class_superfamilies)
+        if not (len(fragments) == len(superfamilies) == len(names)):
+            raise ValueError(
+                f'{prefix}: fragments={len(fragments)}, '
+                f'labels={len(superfamilies)}, headers={len(names)}'
+            )
 
-    if len(x) != len(y) or len(x) != len(fragment_names):
-        raise ValueError(
-            f'{file_suffix}: fragments={len(x)}, labels={len(y)}, '
-            f'fragment_names={len(fragment_names)}'
+        class_data.append(
+            (class_name, fragments, superfamilies, names)
         )
+
+    if not class_data:
+        raise ValueError('No classes specified.')
+
+    per_class = None
+
+    if balance:
+        per_class = min(len(item[1]) for item in class_data)
+
+        if nr_seqs is not None:
+            if nr_seqs < 1:
+                raise ValueError(
+                    'nr_seqs must be positive when balancing.'
+                )
+            per_class = min(per_class, nr_seqs)
+
+        if per_class == 0:
+            raise ValueError(
+                'Balanced sampling requires non-empty classes.'
+            )
+
+    rng = random.Random(42)
+    x, y, y_superfamilies, fragment_names = [], [], [], []
+
+    for class_name, fragments, superfamilies, names in class_data:
+        indices = range(len(fragments))
+
+        if balance:
+            indices = rng.sample(indices, per_class)
+
+        for index in indices:
+            x.append(fragments[index])
+            y.append(class_name)
+            y_superfamilies.append(superfamilies[index])
+            fragment_names.append(names[index])
+
     if shuffle_:
+        original_names = read_lines(os.path.join(
+            fragments_dir, f'{file_suffix}_fragment_headers.txt'))
+
+        missing = set(fragment_names) - set(original_names)
+        if missing:
+            raise ValueError(
+                f'{file_suffix}: fragment headers missing '
+                'from the original order file.'
+            )
+
         x, y, y_superfamilies, fragment_names = reorder_data(
-            x, y, y_superfamilies, fragment_names, original_fragment_names)
-    print(f'{len(x)} fragments loaded in total; '
-          f'balanced={balance}, shuffle_={shuffle_}, nr_seqs={nr_seqs}')
-    print(f'{len(x)} original_order_x fragments loaded in total')
+            x, y, y_superfamilies, fragment_names, original_names
+        )
+
+    print(
+        f'{len(x)} fragments loaded; balanced={balance}, '
+        f'per_class={per_class}, original_order={shuffle_}'
+    )
+
     return x, y, y_superfamilies, fragment_names
 
 

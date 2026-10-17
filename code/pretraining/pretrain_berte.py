@@ -85,6 +85,13 @@ class FragmentGenerator(Sequence):
             seq_len=self.seq_len,
         )
 
+def parse_bool(value):
+    value = value.strip().lower()
+    if value == 'true':
+        return True
+    if value == 'false':
+        return False
+    raise argparse.ArgumentTypeError('Use true or false.')
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -92,7 +99,7 @@ def parse_args():
         description='pre-train BERT on pre-generated fragments',
     )
     parser.add_argument('fragments_dir')
-    parser.add_argument('--nr_seqs', help=' ', type=int, default=300_000)
+    parser.add_argument('--nr_seqs', type=int, default=300_000, help='Maximum fragments per class when --no_balance is false; otherwise ignored.')
     parser.add_argument('--seq_len', help=' ', type=int, default=502)
     parser.add_argument('--kmer', help=' ', type=int, default=3)
     parser.add_argument('--batch_size', help=' ', type=int, default=32)
@@ -102,9 +109,19 @@ def parse_args():
     parser.add_argument('--feed_forward_dim', help=' ', type=int, default=1024)
     parser.add_argument('--dropout_rate', help=' ', type=float, default=0.05)
     parser.add_argument('--epochs', help=' ', type=int, default=10)
-    parser.add_argument('--no_balance', help=' ', action='store_true', default=True)
+    parser.add_argument(
+        '--no_balance',
+        type=parse_bool,
+        nargs='?',
+        const=True,
+        default=True,
+        help='Disable balancing by default. Set to false to enable balanced sampling.',
+    )
     parser.add_argument('--name', help=' ', type=str, default='berte_pretrained')
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.nr_seqs < 1:
+        parser.error('--nr_seqs must be a positive integer.')
+    return args
 
 
 def build_model(args, token_dict):

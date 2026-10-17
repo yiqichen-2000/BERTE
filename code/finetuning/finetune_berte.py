@@ -5,6 +5,7 @@ import argparse
 import os
 import pickle
 from logging import warning
+import random
 
 from sklearn.metrics import balanced_accuracy_score
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -38,13 +39,19 @@ def parse_args():
     parser.add_argument('--stride', help=' ', default=3, type=int)
     parser.add_argument('--batch_size', help=' ', type=int, default=32)
     parser.add_argument('--epochs', help=' ', type=int, default=4)
-    parser.add_argument('--nr_seqs', help=' ', type=int, default=100_000_000)
+    parser.add_argument('--nr_seqs', type=int, default=100_000_000, help=(
+            'Maximum training fragments used for fine-tuning; 0 uses all. '
+            'Validation, test, and embedding exports remain complete.')
+    )
     parser.add_argument('--learning_rate', help=' ', type=float, default=5e-5)
     parser.add_argument('--save_name', help='custom name for saved finetuned model', default=None)
     parser.add_argument('--store_predictions', help=' ', action='store_true')
     parser.add_argument('--only_test_model', help="don't train a model but evaluate the performance", action='store_true')
     parser.add_argument('--export_embeddings_only', help="don't train or evaluate; load the model and export train/val/test embeddings", action='store_true')
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.nr_seqs < 0:
+        parser.error('--nr_seqs must be zero or a positive integer.')
+    return args
 
 
 def make_generators(args, max_length, classes, train_data, val_data, test_data):
@@ -100,11 +107,11 @@ def main():
         raise ValueError('--only_test_model and --export_embeddings_only are mutually exclusive.')
 
     train_x, train_y, train_sf, train_names = load_fragments_finetune(
-        args.fragments_dir, 'train', shuffle_=True, balance=False, nr_seqs=args.nr_seqs)
+        args.fragments_dir, 'train', shuffle_=True, balance=False)
     val_x, val_y, val_sf, val_names = load_fragments_finetune(
-        args.fragments_dir, 'val', shuffle_=True, balance=False, nr_seqs=args.nr_seqs)
+        args.fragments_dir, 'val', shuffle_=True, balance=False)
     test_x, test_y, test_sf, test_names = load_fragments_finetune(
-        args.fragments_dir, 'test', shuffle_=True, balance=False, nr_seqs=args.nr_seqs)
+        args.fragments_dir, 'test', shuffle_=True, balance=False)
 
     (
         f_train_x, f_train_y, f_train_sf,
@@ -153,21 +160,61 @@ def main():
         return
 
     if not args.only_test_model:
+        fit_train_g = train_g
+
+        if 0 < args.nr_seqs < len(f_train_x):
+            indices = sorted(
+                random.Random(42).sample(
+                    range(len(f_train_x)),
+                    args.nr_seqs,
+                )
+            )
+
+            fit_train_g = FragmentGeneratorMultiTax(
+                [f_train_x[i] for i in indices],
+                [f_train_y[i] for i in indices],
+                [f_train_sf[i] for i in indices],
+                classes=classes,
+                seq_len=args.seq_len,
+                tax_ranks=args.tax_ranks,
+                max_seq_len=max_length,
+                k=args.k,
+                stride=args.stride,
+                batch_size=args.batch_size,
+                window=False,
+            )
+
+        best_path = save_prefix + "_model.best.val_acc.h5"
+
         callbacks = [
-            ModelCheckpoint(save_prefix + '_model.best.acc.h5', monitor='val_superfamily_out_accuracy', verbose=1, save_best_only=True, mode='max'),
-            ModelCheckpoint(save_prefix + '_finetune_ep{epoch:02d}.h5', verbose=1),
-            ModelCheckpoint(save_prefix + '_model.best.loss.h5', monitor='loss', verbose=1, save_best_only=True, mode='min'),
-            EarlyStopping('superfamily_out_loss', min_delta=0.01, patience=2, restore_best_weights=True),
-            SaveEmbeddingOutput(save_prefix, model, train_g, data_name='train', output_dir=args.fragments_dir, k=args.k),
-            SaveEmbeddingOutput(save_prefix, model, val_g, data_name='val', output_dir=args.fragments_dir, k=args.k),
-            SaveEmbeddingOutput(save_prefix, model, test_g, data_name='test', output_dir=args.fragments_dir, k=args.k),
+            ModelCheckpoint(
+                best_path,
+                monitor="val_superfamily_out_accuracy",
+                verbose=1,
+                save_best_only=True,
+                mode="max",
+            ),
+            ModelCheckpoint(
+                save_prefix + "_finetune_ep{epoch:02d}.h5",
+                verbose=1,
+            ),
+            EarlyStopping(
+                monitor="val_superfamily_out_accuracy",
+                mode="max",
+                min_delta=0.0,
+                patience=2,
+                restore_best_weights=True,
+            ),
         ]
         try:
-            model.fit(train_g, callbacks=callbacks, epochs=args.epochs, validation_data=val_g, verbose=1)
+            model.fit(fit_train_g, callbacks=callbacks, epochs=args.epochs, validation_data=val_g, verbose=1)
         except KeyboardInterrupt:
             print('training interrupted, saving aborted model and testing current status')
             model.save(save_prefix + '_aborted.h5')
+            return
         save_path = save_prefix + '.h5' if args.save_name is not None else save_prefix + '_finetuned.h5'
+        model.load_weights(best_path)
+        export_embeddings(model, args, train_g, val_g, test_g, save_prefix)
         model.save(save_path)
         print('testing...')
     else:

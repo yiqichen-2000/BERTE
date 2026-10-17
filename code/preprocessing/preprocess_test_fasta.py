@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare one labelled FASTA file for BERTE test/evaluation runs.
+"""Prepare FASTA for BERTE prediction; use --evaluate to extract true labels.
 
 This test-only preprocessor writes the unified files consumed by embedding and
 RF prediction steps, without class1/class2 training split files.
@@ -33,6 +33,27 @@ def read_fasta(path: Path) -> list[tuple[str, str]]:
         records.append((header, "".join(seq_parts)))
     return records
 
+def validate_sequence_ids(records: list[tuple[str, str]]) -> None:
+    seen = set()
+
+    for header, _ in records:
+        sequence_id = header.split("|", 1)[0]
+
+        if (
+            not sequence_id
+            or any(char.isspace() for char in sequence_id)
+            or re.search(r"_\d+", sequence_id)
+        ):
+            raise ValueError(
+                f"Unsupported sequence ID: {sequence_id!r}. "
+                "Use a non-empty ID without whitespace or "
+                "underscores followed by digits."
+            )
+
+        if sequence_id in seen:
+            raise ValueError(f"Duplicate sequence ID: {sequence_id!r}")
+
+        seen.add(sequence_id)
 
 def write_fasta(records: list[tuple[str, str]], path: Path, line_width: int = 80) -> None:
     with path.open("w", encoding="utf-8", newline="\n") as handle:
@@ -42,16 +63,14 @@ def write_fasta(records: list[tuple[str, str]], path: Path, line_width: int = 80
                 handle.write(sequence[start:start + line_width] + "\n")
 
 
-def get_superfamily(header: str, strict: bool = True) -> str | None:
+def get_superfamily(header: str) -> str:
     parts = header.split("|")
     if len(parts) >= 3:
         return parts[1]
-    if strict:
-        raise ValueError(
-            f"Header format error: >{header}\n"
-            "Expected format like: >1112675|Bel-Pao|Dfam"
-        )
-    return None
+    raise ValueError(
+        f"Header format error: >{header}\n"
+        "Expected format like: >1112675|Bel-Pao|Dfam"
+    )
 
 
 def split_records(records: list[tuple[str, str]], fragment_size: int) -> list[tuple[str, str]]:
@@ -73,46 +92,41 @@ def split_records(records: list[tuple[str, str]], fragment_size: int) -> list[tu
     return fragmented
 
 
-def write_test_inputs(records: list[tuple[str, str]], output_dir: Path, prefix: str, strict: bool) -> Counter[str]:
+def write_test_inputs(records: list[tuple[str, str]], output_dir: Path, prefix: str, evaluate: bool = False) -> Counter[str]:
     fragments = [sequence for _, sequence in records]
     headers = [header for header, _ in records]
     superfamilies = []
     counts: Counter[str] = Counter()
-    for header, _ in records:
-        superfamily = get_superfamily(header, strict=strict)
-        if superfamily is None:
-            continue
-        superfamilies.append(superfamily)
-        counts[superfamily] += 1
-
-    if len(superfamilies) != len(fragments):
-        raise ValueError(
-            f"Only {len(superfamilies)} labels for {len(fragments)} fragments. "
-            "Use well-formed FASTA headers or remove --allow-bad-headers."
-        )
+    if evaluate:
+        for header, _ in records:
+            superfamily = get_superfamily(header)
+            superfamilies.append(superfamily)
+            counts[superfamily] += 1
 
     with (output_dir / f"{prefix}_fragments.json").open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(fragments, handle, ensure_ascii=False)
     with (output_dir / f"{prefix}_fragment_headers.txt").open("w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(headers) + ("\n" if headers else ""))
-    with (output_dir / f"{prefix}_fragment_superfamilies.txt").open("w", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n".join(superfamilies) + ("\n" if superfamilies else ""))
+    if evaluate:
+        with (output_dir / f"{prefix}_fragment_superfamilies.txt").open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write("\n".join(superfamilies) + ("\n" if superfamilies else ""))
     return counts
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("fasta", type=Path, help="Input labelled FASTA, headers like >id|superfamily|database")
+    parser.add_argument("fasta", type=Path, help="Input FASTA; --evaluate requires headers like >id|superfamily|database")
     parser.add_argument("--fragment-size", "-l", type=int, default=1500)
     parser.add_argument("--output-dir", "-o", type=Path, default=Path("."))
     parser.add_argument("--prefix", "-p", default="test")
-    parser.add_argument("--allow-bad-headers", action="store_true")
+    parser.add_argument("--evaluate", action="store_true", help="Extract true superfamily labels for evaluation.")
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     records = read_fasta(args.fasta)
     if not records:
         raise ValueError(f"No FASTA records found in {args.fasta}")
+    validate_sequence_ids(records)
 
     fragmented = split_records(records, args.fragment_size)
     fragment_fasta = args.output_dir / f"{args.prefix}_fragments.fasta"
@@ -123,7 +137,7 @@ def main() -> None:
     with (args.output_dir / f"{args.prefix}_sequence_headers.txt").open("w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(header for header, _ in records) + "\n")
 
-    counts = write_test_inputs(fragmented, args.output_dir, args.prefix, strict=not args.allow_bad_headers)
+    counts = write_test_inputs(fragmented, args.output_dir, args.prefix, evaluate=args.evaluate)
     summary = args.output_dir / f"{args.prefix}_preprocess_summary.tsv"
     with summary.open("w", encoding="utf-8", newline="\n") as handle:
         handle.write("item\tcount\n")
