@@ -684,8 +684,23 @@ Copy the trained BERTE `.h5` models into `models/` if the test workflow should u
 If you use BERTE, please cite:
 
 ```text
-Yiqi Chen, Yang Qi, Yingfu Wu, Fuhao Zhang, Xingyi Li,
-Xingyu Liao*, and Xuequn Shang*,. BERTE manuscript under submission.
+Yiqi Chen, Yang Qi, Yingfu Wu, Fuhao Zhang, Xingyi Li, Xingyu Liao, Xuequn Shang, BERTE: hierarchical classification of transposable elements via multi-scale BERT-based representations, Briefings in Bioinformatics, Volume 27, Issue 6, November 2026, bbag646, https://doi.org/10.1093/bib/bbag646
+```
+
+```text
+@article{10.1093/bib/bbag646,
+    author = {Chen, Yiqi and Qi, Yang and Wu, Yingfu and Zhang, Fuhao and Li, Xingyi and Liao, Xingyu and Shang, Xuequn},
+    title = {BERTE: hierarchical classification of transposable elements via multi-scale BERT-based representations},
+    journal = {Briefings in Bioinformatics},
+    volume = {27},
+    number = {6},
+    pages = {bbag646},
+    year = {2026},
+    month = {11},
+    issn = {1477-4054},
+    doi = {10.1093/bib/bbag646},
+    url = {https://doi.org/10.1093/bib/bbag646},
+}
 ```
 
 
